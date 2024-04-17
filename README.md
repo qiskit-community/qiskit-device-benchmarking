@@ -10,15 +10,15 @@ The repository is not intended to define a benchmark standard. This code base is
 # Structure
 
 - [Notebooks](https://github.com/qiskit-community/qiskit-device-benchmarking/notebooks): Jupyter notebooks for running benchmarks
-- [Utilities](https://github.com/qiskit-community/qiskit-device-benchmarking/utilities): Benchmarking utilities not found elsewhere in qiskit. If these prove useful they will be pushed into standard qiskit or qiskit-experiments.
-- [Extensions](https://github.com/qiskit-community/qiskit-device-benchmarking/extensions): Code extensions to qiskit-experiments for custom benchmarks.
+- [Utilities](https://github.com/qiskit-community/qiskit-device-benchmarking/utilities): Benchmarking utility/helper code not found elsewhere in qiskit. If these prove useful they will be pushed into standard qiskit or qiskit-experiments.
+- [Benchmarking Code](https://github.com/qiskit-community/qiskit-device-benchmarking/bench_code): General folder for benchmarking code, which may include standalone code and extensions to qiskit-experiments for custom benchmarks.
 - [Verification](https://github.com/qiskit-community/qiskit-device-benchmarking/verification): Fast verification code (tbd)
 
 # Paper Code
 
 For clarity here we provide links from various papers to the code in this repo. Not necessarily the exact code used in these manuscripts, but representative of what was run.
 
-- [Layer Fidelity](https://arxiv.org/abs/2311.05933): David C. McKay, Ian Hincks, Emily J. Pritchett, Malcolm Carroll, Luke C. G. Govia, Seth T. Merkel. Benchmarking Quantum Processor Performance at Scale (2023). [Code](https://github.com/qiskit-community/qiskit-device-benchmarking/notebooks/lf.ipynb)
+- [Layer Fidelity](https://arxiv.org/abs/2311.05933): David C. McKay, Ian Hincks, Emily J. Pritchett, Malcolm Carroll, Luke C. G. Govia, Seth T. Merkel. Benchmarking Quantum Processor Performance at Scale (2023). [Code](https://github.com/qiskit-community/qiskit-device-benchmarking/notebooks/layer_fidelity.ipynb)
 
 # Contribution Guidelines
 
