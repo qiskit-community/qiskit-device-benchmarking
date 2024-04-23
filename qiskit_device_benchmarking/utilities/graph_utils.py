@@ -27,12 +27,12 @@ def paths_flatten(paths):
     """
     return [list(val) for ps in paths.values() for vals in ps.values() for val in vals]
 
-def build_sys_graph(qlist, coupling_map, faulty_qubits=None):
+def build_sys_graph(nq, coupling_map, faulty_qubits=None):
     
     """Build a system graph
 
     Args:
-        qlist: list of qubits
+        nq: number of qubits
         coupling_map: coupling map in list form
         faulty_qubits: list of faulty qubits (will remove from graph)
 
@@ -42,26 +42,19 @@ def build_sys_graph(qlist, coupling_map, faulty_qubits=None):
     
     if faulty_qubits is not None:
         
-        qlist2 = []
         coupling_map2 = []
-        
-        for i in qlist:
-            if i not in faulty_qubits:
-                qlist2.append(i)
                 
         for i in coupling_map:
-            if i[0] not in faulty_qubits and i[1] not in faulty_qubits:
+            if (i[0] not in faulty_qubits) and (i[1] not in faulty_qubits):
                 coupling_map2.append(i)
     
-        qlist = qlist2
         coupling_map = coupling_map2
     
     G = rx.PyDiGraph()
-    G.add_nodes_from(qlist)
+    G.add_nodes_from(range(nq))
     G.add_edges_from_no_data([tuple(x) for x in coupling_map]);
     
     return G.to_undirected(multigraph=False)
-    
 
 def get_iso_qubit_list(G):
     
@@ -132,6 +125,9 @@ def get_separated_sets(G, node_sets, min_sep=1, nsets=-1):
     cur_ind2 = 0
     
     node_sets_tmp = copy.deepcopy(node_sets)
+
+    #get all node to node distances in a dictionary
+    all_dists = rx.all_pairs_dijkstra_path_lengths(G, lambda a: 1)
     
     while (len(node_sets_tmp)>0):
         if cur_ind2>=len(node_sets_tmp):
@@ -146,7 +142,7 @@ def get_separated_sets(G, node_sets, min_sep=1, nsets=-1):
         add_set = True
         for node_set in node_sets_sep[cur_ind1]:
             
-            if not sets_min_dist(G, node_set, node_sets_tmp[cur_ind2], min_sep):
+            if not sets_min_dist(all_dists, node_set, node_sets_tmp[cur_ind2], min_sep):
                 add_set = False
                 cur_ind2 += 1
                 break
@@ -158,11 +154,11 @@ def get_separated_sets(G, node_sets, min_sep=1, nsets=-1):
 
     return node_sets_sep            
         
-def sets_min_dist(G, set1, set2, min_sep):
+def sets_min_dist(dist_dict, set1, set2, min_sep):
     """Calculate if two sets are min_sep apart
 
     Args:
-        G: system graph
+        dist_dict: dictionary of distances between nodes
         set1,2: the two sets
         min_sep: minimum separation 
 
@@ -171,13 +167,12 @@ def sets_min_dist(G, set1, set2, min_sep):
     """
     
     #dummy check
-    for i in set1:
-        if i in set2:
-            return False
+    if set(set1) & set(set2):
+        return False
     
     for i in set1:
         for j in set2:
-            if rx.dijkstra_shortest_path_lengths(G, i, lambda a: 1, goal=j)[j] < min_sep:
+            if dist_dict[i][j] < min_sep:
                 return False
             
     return True
