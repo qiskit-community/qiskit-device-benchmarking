@@ -22,7 +22,7 @@ def import_yaml(fstr):
     return data_imp
 
 def timestamp_name():
-    return datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
+    return datetime.datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
     
 def export_yaml(fstr, exp_data):
     with open(fstr, 'w') as fout:

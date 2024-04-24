@@ -134,6 +134,8 @@ def run_bench(hgp, backends, depths=[8], trials=10,
     #get the jobs back
     for i, backend in enumerate(backends):
         
+        print('Loading results for backend: %s'%backend)
+        
         expdata = job_list[i]
         expdata.block_for_results()
         
@@ -155,9 +157,7 @@ def run_bench(hgp, backends, depths=[8], trials=10,
                         nshots = cur_exp['shots']
                         targ_bstr = cur_exp['metadata']['target_bitstring']
                         cnt_dict = cur_exp['counts']
-                        print(cnt_dict.get(targ_bstr,0)/nshots)
                         result_dict[backend][depth]['data'][-1].append(cnt_dict.get(targ_bstr,0)/nshots)
-                        #print(cnt_dict.get(targ_bstr,0))
     
                 result_dict[backend][depth]['mean'].append(float(np.mean(result_dict[backend][depth]['data'][-1])))
                 result_dict[backend][depth]['std'].append(float(np.std(result_dict[backend][depth]['data'][-1])))
