@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2024
+# (C) Copyright IBM 2023.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -10,17 +10,20 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""
-==============================================
-Qiskit Device Benchmarking (:mod:`qiskit_device_benchmarking`)
-==============================================
+"""File utilities for the device benchmarking."""
 
-.. currentmodule:: qiskit_device_benchmarking
+import yaml
+import datetime
 
-Qiskit Device Benchmarking is a collection of code files to help
-users run benchmarking experiments..
-"""
+def import_yaml(fstr):
+    with open(fstr, 'r') as stream:
+        data_imp = yaml.safe_load(stream)
+        
+    return data_imp
 
-# Modules
-#from . import utilities
-#from . import bench_code
+def timestamp_name():
+    return datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
+    
+def export_yaml(fstr, exp_data):
+    with open(fstr, 'w') as fout:
+        yaml.dump(exp_data, fout, default_flow_style=None)
