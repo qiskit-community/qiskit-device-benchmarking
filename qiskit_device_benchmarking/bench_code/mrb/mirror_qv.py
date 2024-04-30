@@ -43,8 +43,8 @@ from qiskit.quantum_info import random_pauli_list, random_unitary
 
 
 from qiskit.transpiler import PassManager, InstructionDurations
-from qiskit_ibm_provider.transpiler.passes.scheduling import ALAPScheduleAnalysis
-from qiskit_ibm_provider.transpiler.passes.scheduling import PadDynamicalDecoupling
+from qiskit_ibm_runtime.transpiler.passes.scheduling import ALAPScheduleAnalysis
+from qiskit_ibm_runtime.transpiler.passes.scheduling import PadDynamicalDecoupling
 from qiskit_experiments.exceptions import QiskitError
 
 
