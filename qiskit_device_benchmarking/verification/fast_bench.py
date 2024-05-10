@@ -27,7 +27,7 @@ import qiskit_device_benchmarking.utilities.graph_utils as gu
 from  qiskit_device_benchmarking.bench_code.mrb import MirrorQuantumVolume
 
 def run_bench(hgp, backends, depths=[8], trials=10, 
-              nshots=100, he=True, dd=True, opt_level=3):
+              nshots=100, he=True, dd=True, opt_level=3, act_name=''):
     
     """Run a benchmarking test (mirror QV) on a set of devices
 
@@ -41,13 +41,14 @@ def run_bench(hgp, backends, depths=[8], trials=10,
                                            True assumes a line)
         dd: add dynamic decoupling
         opt_level: optimization level of the transpiler
+        act_name: account name to be passed to the runtime service
 
     Returns:
         flat list of lists of qubit chains
     """
     
     #load the service
-    service = QiskitRuntimeService()
+    service = QiskitRuntimeService(name=act_name)
     job_list = []
     result_dict = {}
     result_dict['config'] = {'hgp': hgp, 'depths': depths, 
@@ -56,7 +57,8 @@ def run_bench(hgp, backends, depths=[8], trials=10,
                              'dd': dd,
                              'he': he,
                               'pregenerated': False,
-                              'opt_level': opt_level}
+                              'opt_level': opt_level,
+                              'act_name': act_name}
     
     
     print('Running Fast Bench with options %s'%result_dict['config'])
@@ -178,6 +180,7 @@ if __name__ == '__main__':
                         default='backends')
     parser.add_argument('--hgp', help='specify hgp')
     parser.add_argument('--he', help='Hardware efficient', action='store_true')
+    parser.add_argument('--name', help='Account name', default='')
     args = parser.parse_args()
     
     #import from config
@@ -210,4 +213,4 @@ if __name__ == '__main__':
     #print(hgp, backends, he, opt_level, dd, depths, trials, nshots)
     
     run_bench(hgp, backends, depths=depths, trials=trials, 
-              nshots=nshots, he=he, dd=dd, opt_level=opt_level)
+              nshots=nshots, he=he, dd=dd, opt_level=opt_level, act_name=args.name)

@@ -69,7 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--backends', help='Comma separated list of '
                         + 'backends to plot. If empty plot all.')
     parser.add_argument('-v', '--value', help='Statistical value to compute', 
-                        choices=['mean','median', 'max'], default='mean')
+                        choices=['mean','median', 'max', 'min'], default='mean')
     parser.add_argument('--plot', help='Generate a plot', action='store_true')
     args = parser.parse_args()
     
@@ -79,13 +79,15 @@ if __name__ == '__main__':
         results_dict_new = fu.import_yaml(file)
         
         for backend in results_dict_new:
+            
             if backend not in results_dict:
                 results_dict[backend] = results_dict_new[backend]
-            else:
+            elif backend!='config':
                 #backend in the results dict but maybe not that depth
                 for depth in results_dict_new[backend]:
                     if depth in results_dict[backend]:
-                        raise ValueError('Depth already exists, duplicate results')
+                        err_str = 'Depth %s already exists for backend %s, duplicate results'%(depth,backend)
+                        raise ValueError(err_str)
                     else:
                         
                         #check the metadata is the same
@@ -124,6 +126,8 @@ if __name__ == '__main__':
                 depth_list.append(np.mean(results_dict[backend][depth]['mean']))
             elif args.value=='max':
                 depth_list.append(np.max(results_dict[backend][depth]['mean']))
+            elif args.value=='min':
+                depth_list.append(np.min(results_dict[backend][depth]['mean']))
             else:
                 depth_list.append(np.median(results_dict[backend][depth]['mean']))
             
@@ -134,6 +138,8 @@ if __name__ == '__main__':
             print('Means: %s'%depth_list)
         elif args.value=='max':
             print('Max: %s'%depth_list)
+        elif args.value=='min':
+            print('Min: %s'%depth_list)
         else:
             print('Median: %s'%depth_list)
         
