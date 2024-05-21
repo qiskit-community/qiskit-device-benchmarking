@@ -139,7 +139,13 @@ def run_bench(hgp, backends, depths=[8], trials=10,
         print('Loading results for backend: %s'%backend)
         
         expdata = job_list[i]
-        expdata.block_for_results()
+        try:
+            expdata.block_for_results()
+        except:
+            #remove backend from results
+            print('Error loading backend %s results'%backend)
+            result_dict.pop(backend)
+            continue
         
         for j, depth in enumerate(depths):
     

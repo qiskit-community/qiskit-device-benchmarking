@@ -27,6 +27,71 @@ def paths_flatten(paths):
     """
     return [list(val) for ps in paths.values() for vals in ps.values() for val in vals]
 
+def remove_permutations(paths):
+    """remove permutations from the paths
+
+    Args:
+        paths: list of qubit chains
+
+    Returns:
+        list of qubit chains without permutations
+    """
+    
+    new_path = []
+    for path_i in paths:
+        
+        #check already in the new_path
+        if path_i in new_path:
+            continue
+        
+        #reverse and check
+        path_i.reverse()
+        if path_i  in new_path:
+            continue
+        path_i.reverse()
+        
+        new_path.append(path_i)
+        
+        
+    return new_path
+
+def path_to_edges(paths, coupling_map=None):
+    """Converse a list of paths into a list of edges that are in the 
+    coupling_map if defined
+    
+    If already edges (length 2 path) then convert into the edge that's in the 
+    coupling map
+
+    Args:
+        paths: list of qubit chains
+
+    Returns:
+        list of qubit paths in terms of the edges to traverse.
+    """
+    
+    new_path = []
+    for path_i in paths:
+        
+        if len(path_i)>2:
+            new_path.append([])
+            
+        for i in range(len(path_i)-1):
+            
+            tmp_set = path_i[i:(i+2)]
+            if coupling_map is not None:
+                if tmp_set not in coupling_map:
+                    tmp_set.reverse()
+                    if tmp_set not in coupling_map:
+                      raise ValueError('Path not found in coupling map')
+                      
+            if len(path_i)>2:
+                new_path[-1].append(tmp_set)
+            else:
+                new_path.append(tmp_set)
+        
+    return new_path
+
+
 def build_sys_graph(nq, coupling_map, faulty_qubits=None):
     
     """Build a system graph
