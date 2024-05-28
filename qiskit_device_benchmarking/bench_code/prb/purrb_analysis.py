@@ -13,7 +13,7 @@
 Purity RB analysis class.
 """
 
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from qiskit.result import sampled_expectation_value
 
@@ -23,6 +23,7 @@ from qiskit_experiments.framework import AnalysisResultData
 from qiskit_experiments.library.randomized_benchmarking import RBAnalysis
 from qiskit_experiments.library.randomized_benchmarking.rb_analysis import (_calculate_epg, 
                                                                             _exclude_1q_error)
+
 
 class PurityRBAnalysis(RBAnalysis):
     r"""A class to analyze purity randomized benchmarking experiments. 
@@ -118,7 +119,7 @@ class PurityRBAnalysis(RBAnalysis):
                     purity += sampled_expectation_value(trial_raw[ii]['counts'],'IZ')**2/2**nq/3**(nq-1)
                     purity += sampled_expectation_value(trial_raw[ii]['counts'],'ZI')**2/2**nq/3**(nq-1)
 
-            raw_data2[-1]['counts'] = {'0'*nq: int(purity*nshots),'1'*nq: int((1-purity)*nshots)} 
+            raw_data2[-1]['counts'] = {'0'*nq: int(purity*nshots*10),'1'*nq: int((1-purity)*nshots*10)} 
                         
         return super()._run_data_processing(raw_data2,category)
 
@@ -196,3 +197,44 @@ class PurityRBAnalysis(RBAnalysis):
                     )
 
         return outcomes
+    
+    def _generate_fit_guesses(
+        self,
+        user_opt: curve.FitOptions,
+        curve_data: curve.ScatterTable,
+    ) -> Union[curve.FitOptions, List[curve.FitOptions]]:
+        """Create algorithmic initial fit guess from analysis options and curve data.
+
+        Args:
+            user_opt: Fit options filled with user provided guess and bounds.
+            curve_data: Formatted data collection to fit.
+
+        Returns:
+            List of fit options that are passed to the fitter function.
+        """
+        user_opt.bounds.set_if_empty(
+            a=(0, 1),
+            alpha=(0, 1),
+            b=(0, 1),
+        )
+
+        b_guess = 1 / 2 ** len(self._physical_qubits)
+        if len(curve_data.x)>3:
+            alpha_guess = curve.guess.rb_decay(curve_data.x[0:3], curve_data.y[0:3], b=b_guess)
+        else:
+            alpha_guess = curve.guess.rb_decay(curve_data.x, curve_data.y, b=b_guess)
+            
+        alpha_guess = alpha_guess**2
+        
+        if alpha_guess < 0.6:
+            a_guess = (curve_data.y[0] - b_guess)
+        else:
+            a_guess = (curve_data.y[0] - b_guess) / (alpha_guess ** curve_data.x[0])
+            
+        user_opt.p0.set_if_empty(
+            b=b_guess,
+            a=a_guess,
+            alpha=alpha_guess,
+        )
+
+        return user_opt
