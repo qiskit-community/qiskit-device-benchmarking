@@ -7,3 +7,5 @@ This folder contains example notebooks for running benchmarks.
 - [Bell State Tomography](https://github.com/qiskit-community/qiskit-device-benchmarking/blob/main/notebooks/bell_state_tomography.ipynb): Example notebook for running parallel state tomography using qiskit-experiments.
 
 - [Device RB](https://github.com/qiskit-community/qiskit-device-benchmarking/blob/main/notebooks/device_rb.ipynb): Example notebook for running full device 2Q RB and Purity RB.
+
+- [Coherence and Proxy Bell] (https://github.com/qiskit-community/qiskit-device-benchmarking/blob/main/notebooks/bell_tphi.ipynb): Runs T1/T2 across the device and looks at hellinger fidelities of Bell states produced with repeated two-qubit gates. 
