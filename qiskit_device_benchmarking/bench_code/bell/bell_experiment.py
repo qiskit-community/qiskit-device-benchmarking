@@ -1,20 +1,112 @@
-from typing import List, Tuple, Optional, Sequence
-import pandas as pd
+from typing import List, Tuple, Sequence
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.quantum_info import hellinger_fidelity
 from qiskit.result import marginal_counts
 
 from qiskit_experiments.framework import (
-    BaseExperiment, Options,
+    BaseExperiment,
     BaseAnalysis,
     Options,
     ExperimentData,
     AnalysisResultData
 )
+
+class CHSHExperiment(BaseExperiment):
+    """Custom experiment class template."""
+
+    def __init__(self,
+                 physical_qubits: Sequence[int],
+                 backend = None):
+        """Initialize a chsh bell experiment
+
+        Args:
+            physical_qubits: List of physical qubits for the experiment.
+            backend: The backend to run the experiment on.
+
+        Raises:
+            QiskitError: If any invalid argument is supplied.
+        """
+        
+        
+        super().__init__(physical_qubits,
+                         analysis = CHSHAnalysis(),
+                         backend = backend)
+
+    def circuits(self) -> List[QuantumCircuit]:
+        """Generate the list of circuits to be run."""
+        
+        #Four circuits for this experiment
+        #Assume the ideal basis for this inequality
+        circuits = []
+        for i in range(4):
+            qc = QuantumCircuit(2)
+            qc.h(0)
+            qc.cx(0,1)
+            
+            #rotate the 2nd qubit by pi/4 (optimal for the inequality)
+            qc.rx(np.pi/4,1)
+            
+            #measure in Z, ZY, YZ, YY 
+            if np.mod(i,2):
+                qc.sx(0)
+            if np.mod(int(i/2),2):
+                qc.sx(0)
+            qc.measure_all()
+            circuits.append(qc)
+
+        return circuits
+
+    @classmethod
+    def _default_experiment_options(cls) -> Options:
+        """Set default experiment options here."""
+        options = super()._default_experiment_options()
+        options.update_options(
+            shots = 300,
+        )
+        return options
+    
+
+class CHSHAnalysis(BaseAnalysis):
+    """Custom analysis class template."""
+
+    @classmethod
+    def _default_options(cls) -> Options:
+        """Set default analysis options. Plotting is on by default."""
+
+        options = super()._default_options()
+        options.dummy_analysis_option = None
+        options.plot = False
+        options.ax = None
+        return options
+
+    def _estate(self, counts):
+        #from a counts dictionary determine the correlation function E
+        
+        shots = np.sum([counts[i] for i in counts])
+        return (counts.get('11',0)+counts.get('00',0)-counts.get('10',0)-counts.get('01',0))/shots
+
+    def _run_analysis(
+        self,
+        experiment_data: ExperimentData,
+    ) -> Tuple[List[AnalysisResultData], List["matplotlib.figure.Figure"]]:
+        """Run the analysis."""
+
+        # Process the data here
+        
+        res = experiment_data.data()
+
+        aa = [1,-1,-1,-1]
+        S = np.sum([aa[i]*self._estate(res[i]['counts']) for i in range(4)])
+        
+        analysis_results = [
+            AnalysisResultData(name="S", value=S)
+        ]
+            
+        return analysis_results, None
+
 
 class BellExperiment(BaseExperiment):
     """Custom experiment class template."""
