@@ -34,7 +34,7 @@ class BellExperiment(BaseExperiment):
                 if pair[1] not in physical_qubits:
                     physical_qubits.append(pair[1])
         physical_qubits = range(backend.configuration().num_qubits)
-        # physical_qubits = np.unique(layered_coupling_map).tolist()
+        
         self.layered_coupling_map = layered_coupling_map
         self.cxnum = cxnum
         super().__init__(physical_qubits,
@@ -83,8 +83,7 @@ class BellAnalysis(BaseAnalysis):
         import pandas as pd
         
         res = experiment_data.data()
-        # cxnum = experiment_data.experiment.cxnum
-        # layered_coupling_map = experiment_data.experiment.layered_coupling_map
+
         cxnum = res[0]['metadata']['cxnum']
         if cxnum % 2 == 1: # usual case of making a Bell state
                 target = {'00': 0.5, '11': 0.5}
@@ -92,7 +91,6 @@ class BellAnalysis(BaseAnalysis):
                 target = {'00': 0.5, '01': 0.5}
         
         fid = []; cmap=[]
-        # TODO: support multiple numbers of resets here
         for datum in res:
             coupling_map = datum['metadata']['coupling_map']
             # cxnum
@@ -105,7 +103,7 @@ class BellAnalysis(BaseAnalysis):
         df = {'connection':cmap,'fidelity':fid}
         fidelity_data = pd.DataFrame(df).sort_values(by='connection')
         
-        ###
+        
         analysis_results = [
             AnalysisResultData(name="hellinger_fidelities", value=fidelity_data)
         ]
@@ -139,28 +137,20 @@ def make_bell_circs(layered_coupling_map, conf, cxnum):
     
     from qiskit.transpiler import CouplingMap
 
-    # if ',' in args.resets:
-    #     args.resets = [int(rsn) for rsn in args.resets.split(',')]
-    # else:
-    #     args.resets = [int(args.resets)]
 
-    # production args
     n_reset = 2
     cxnum = 5
     insert_barrier = False
-    # simul = True
+
     hadamard_idle = False
     y_basis = False
     measure_idle = False
     circs=[]
-    # print(layered_coupling_map)
+
     for coupling_map in layered_coupling_map:
         bits=flatten_bits(coupling_map); 
         nbits=len(bits)
-        # for n_reset in args.resets:
-        # if args.measure_idle:
-        #     qc = QuantumCircuit(conf.n_qubits, conf.n_qubits)
-        # else:
+
         qc = QuantumCircuit(conf.n_qubits, nbits)
         # prepare qubits in superposition and then reset (conditionally) if requested
         if n_reset > 0:
@@ -200,7 +190,7 @@ def make_bell_circs(layered_coupling_map, conf, cxnum):
             qc.measure(full_list, full_list)
         else:
             qc.measure(bits, list(range(nbits)))
-        # qc.metadata['layered_coupling_map'] = layered_coupling_map
+
         qc.metadata['coupling_map'] = coupling_map
         qc.metadata['cxnum'] = cxnum
         circs.append(qc)
@@ -226,10 +216,7 @@ def extract_ind_counts(crs, counts, measure_idle):
             idx1 = bit2idx[int(cr[0])]
             idx2 = bit2idx[int(cr[1])]
         ind_counts.update({label:marginal_counts(counts, [idx1, idx2])})
-        # XXX as of 4/23/22, marginal_counts SORTS the list of indices you pass it, so
-        # that is why there is a weird hack here. Paul and I have both complained about
-        # this: https://github.com/Qiskit/qiskit-terra/issues/6230
-        # XXX as of 8/24/23, this issue is closed, but idk how that affects this code...
+        
         if measure_idle and cr[0] > cr[1]:
             ind_counts[label]['01'], ind_counts[label]['10'] = ind_counts[label].get('10', 0), ind_counts[label].get('01', 0)
 
