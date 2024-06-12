@@ -19,7 +19,7 @@ import qiskit_device_benchmarking.utilities.file_utils as fu
 import matplotlib.pyplot as plt
 
 
-def generate_plot(out_data, args):
+def generate_plot(out_data, degree_data, args):
     
     """Generate a bar plot of the qubit numbers of each backend
     
@@ -27,8 +27,8 @@ def generate_plot(out_data, args):
     current date and time
 
     Args:
-        out_data: data from the run
-        config_data: configuration data from the run
+        out_data: data from the run (count data)
+        degree_data: average degree
         args: arguments passed to the parser
 
     Returns:
@@ -36,17 +36,23 @@ def generate_plot(out_data, args):
     """
     
     count_data = np.array([out_data[i] for i in out_data])
+    degree_data = np.array([degree_data[i] for i in out_data])
     backend_lbls = np.array([i for i in out_data])
     sortinds = np.argsort(count_data)
     
     plt.bar(backend_lbls[sortinds], count_data[sortinds])
     plt.xticks(rotation=45, ha='right')
     
+    ax1 = plt.gca()
+    ax2 = ax1.twinx()
+    ax2.plot(range(len(sortinds)),degree_data[sortinds],marker='x', color='black')
+    
     
         
     plt.xlabel('Backend')
     plt.grid(axis='y')
-    plt.ylabel('Largest Connected Region')
+    ax1.set_ylabel('Largest Connected Region')
+    ax2.set_ylabel('Average Degree')
     plt.title('CHSH Test on Each Edge to Determine Qubit Count')
     plt.savefig('count_plot_%s.pdf'%fu.timestamp_name(),bbox_inches='tight')
     plt.close()
@@ -94,6 +100,7 @@ if __name__ == '__main__':
         backends_filt = []
     
     count_data = {}
+    degree_data = {}
     
     
     for backend in results_dict:
@@ -108,13 +115,15 @@ if __name__ == '__main__':
         
        
         count_data[backend] = results_dict[backend]['largest_region']
+        degree_data[backend] = results_dict[backend]['average_degree']
         print('Backend %s, Largest Connected Region: %d'%(backend,count_data[backend]))
+        print('Backend %s, Average Degree: %f'%(backend,degree_data[backend]))
     
     
     
     if args.plot:
         
-        generate_plot(count_data, args)
+        generate_plot(count_data, degree_data, args)
         
     elif args.plot:
         print('Need to run mean/max also')
