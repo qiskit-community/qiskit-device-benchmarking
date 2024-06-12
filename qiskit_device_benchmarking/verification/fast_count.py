@@ -146,10 +146,23 @@ def run_count(hgp, backends, nshots=100, act_name=''):
         #catch error if the graph is empty
         try:
             largest_cc = max(nx.connected_components(G), key=len)
+            
+            #look at the average degree of the largest region
+            avg_degree = 0
+            for i in largest_cc:
+                avg_degree += nx.degree(G,i)
+            
+            avg_degree = avg_degree/len(largest_cc)
+            
         except:
+            
             largest_cc = {}
+            avg_degree = 1
+            
+        
 
         result_dict[backend]['largest_region'] = len(largest_cc)
+        result_dict[backend]['average_degree'] = avg_degree
 
 
         
