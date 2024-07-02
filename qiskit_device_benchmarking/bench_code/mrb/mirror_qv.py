@@ -15,16 +15,9 @@ Quantum Volume Experiment class.
 
 import warnings
 from typing import Union, Sequence, Optional, List
-from numpy import pi as PI
 from numpy.random import Generator, default_rng
 from numpy.random.bit_generator import BitGenerator, SeedSequence
 
-try:
-    from qiskit import Aer
-
-    HAS_SIMULATION_BACKEND = True
-except ImportError:
-    HAS_SIMULATION_BACKEND = False
 
 from qiskit.circuit import (
     QuantumCircuit,
@@ -33,7 +26,6 @@ from qiskit.circuit import (
 
 from qiskit.circuit.library import QuantumVolume as QuantumVolumeCircuit
 from qiskit.circuit.library import XGate
-from qiskit import transpile
 from qiskit.providers.backend import Backend
 from qiskit_experiments.framework import BaseExperiment, Options
 from .mirror_qv_analysis import MirrorQuantumVolumeAnalysis
@@ -92,12 +84,8 @@ class MirrorQuantumVolume(BaseExperiment):
         backend: Optional[Backend] = None,
         trials: Optional[int] = 100,
         seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
-        simulation_backend: Optional[Backend] = None,
-        calc_probabilities: Optional[bool] = True,
-        split_inverse: Optional[bool] = False,
         pauli_randomize: Optional[bool] = True,
         pauli_randomize_barriers: Optional[bool] = False,
-        middle_pauli_randomize: Optional[bool] = False,
         left_and_right: Optional[bool] = False,
         he: Optional[bool] = False
     ):
@@ -110,22 +98,10 @@ class MirrorQuantumVolume(BaseExperiment):
             seed: Optional, seed used to initialize ``numpy.random.default_rng``
                   when generating circuits. The ``default_rng`` will be initialized
                   with this seed value everytime :meth:`circuits` is called.
-            simulation_backend: The simulator backend to use to generate
-                the expected results. the simulator must have a 'save_probabilities'
-                method. If None :class:`AerSimulator` simulator will be used
-                (in case :class:`AerSimulator` is not
-                installed :class:`qiskit.quantum_info.Statevector` will be used).
-            calc_probablities: True/false calculate the probabilities. Can set to 
-                false if doing mirror.
-            split_inverse: If True, used "mirrored QV" circuits, i.e., circuits
-                constructed by taking the first half of a QV circuit and appending
-                its inverse to this half
             pauli_randomize: If True, add random Paulis to the beginning and end of
                 a mirrored QV circuit
             pauli_randomize_barriers: If True, add barriers between the Paulis from
                 pauli_randomize and the SU(4) elements
-            middle_pauli_randomize: If True, add a layer of random Paulis between
-                the two halves of a mirrored QV circuit
             left_and_right: If True, construct mirrored QV circuits from the left
                 and right halves QV circuits. Circuits constructed from the right
                 half have their inverses prepended, rather than appended.
@@ -139,19 +115,12 @@ class MirrorQuantumVolume(BaseExperiment):
         # Set configurable options
         self.set_experiment_options(trials=trials, seed=seed)
 
-        if not simulation_backend and HAS_SIMULATION_BACKEND:
-            self._simulation_backend = Aer.get_backend("aer_simulator")
-        else:
-            self._simulation_backend = simulation_backend
-            
-        self._calc_probs = calc_probabilities
-
-        self.split_inverse = split_inverse
+        self.split_inverse = True
         # always set pauli_randomize to False if split_inverse is False
-        self.pauli_randomize = pauli_randomize and split_inverse
+        self.pauli_randomize = pauli_randomize and self.split_inverse
         # always set pauli_randomize_barriers to False if pauli_randomize is False
         self.pauli_randomize_barriers = pauli_randomize_barriers and self.pauli_randomize
-        self.middle_pauli_randomize = middle_pauli_randomize
+        self.middle_pauli_randomize = False
 
         self.left_and_right = left_and_right and pauli_randomize
         self.he = he
@@ -160,7 +129,7 @@ class MirrorQuantumVolume(BaseExperiment):
             raise QiskitError("Not supported for HE and left and right")
 
         warnings.simplefilter("always")
-        if split_inverse and len(qubits) % 2 == 1:
+        if self.split_inverse and len(qubits) % 2 == 1:
             self.split_inverse = False
             self.pauli_randomize = False
             self.middle_pauli_randomize = False
@@ -238,35 +207,6 @@ class MirrorQuantumVolume(BaseExperiment):
 
         return options
 
-    def _get_ideal_data(self, circuit: QuantumCircuit, **run_options) -> List[float]:
-        """Return ideal measurement probabilities.
-
-        In case the user does not have Aer installed use Terra to calculate
-        the ideal state.
-
-        Args:
-            circuit: the circuit to extract the ideal data from
-            run_options: backend run options.
-
-        Returns:
-            list: list of the probabilities for each state in the circuit (as Numpy array)
-        """
-        ideal_circuit = circuit.remove_final_measurements(inplace=False)
-        if self._simulation_backend:
-            ideal_circuit.save_probabilities()
-            # always transpile with optimization_level 0, even if the non ideal circuits will run
-            # with different optimization level, because we need to compare the results to the
-            # exact generated probabilities
-            ideal_circuit = transpile(ideal_circuit, self._simulation_backend, optimization_level=0)
-
-            ideal_result = self._simulation_backend.run(ideal_circuit, **run_options).result()
-            probabilities = ideal_result.data().get("probabilities")
-        else:
-            from qiskit.quantum_info import Statevector
-
-            state_vector = Statevector(ideal_circuit)
-            probabilities = state_vector.probabilities()
-        return probabilities
 
     def circuits(self) -> List[QuantumCircuit]:
         """Return a list of Quantum Volume circuits.
@@ -343,10 +283,8 @@ class MirrorQuantumVolume(BaseExperiment):
                 "depth": depth,
                 "trial": trial,
                 "qubits": self.physical_qubits,
-                "ideal_probabilities": self._get_ideal_data(qv_circ) if self._calc_probs else {},
                 "is_mirror_circuit": self.split_inverse,
                 "is_from_left_half": True,
-                "has_middle_paulis": self.middle_pauli_randomize,
             }
             if self.left_and_right:
                 right_qv_circ.measure_active()
@@ -355,10 +293,8 @@ class MirrorQuantumVolume(BaseExperiment):
                     "depth": depth,
                     "trial": trial,
                     "qubits": self.physical_qubits,
-                    "ideal_probabilities": self._get_ideal_data(qv_circ) if self._calc_probs else {},
                     "is_mirror_circuit": self.split_inverse,
                     "is_from_left_half": False,
-                    "has_middle_paulis": self.middle_pauli_randomize,
                 }
             if self.split_inverse and depth % 2 == 0:
                 qv_circ.metadata["target_bitstring"] = target
