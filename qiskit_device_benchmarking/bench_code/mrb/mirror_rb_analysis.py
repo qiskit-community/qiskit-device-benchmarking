@@ -149,7 +149,7 @@ class MirrorRBAnalysis(RBAnalysis):
     def _generate_fit_guesses(
         self,
         user_opt: curve.FitOptions,
-        curve_data: curve.CurveData,
+        curve_data: curve.ScatterTable,
     ) -> Union[curve.FitOptions, List[curve.FitOptions]]:
         """Create algorithmic guess with analysis options and curve data.
 
@@ -179,7 +179,7 @@ class MirrorRBAnalysis(RBAnalysis):
 
     def _create_analysis_results(
         self,
-        fit_data: curve.FitData,
+        fit_data: curve.CurveFitResult,
         quality: str,
         **metadata,
     ) -> List[AnalysisResultData]:
@@ -272,21 +272,26 @@ class _ComputeQuantities(DataAction):
 
             # h[k] = proportion of shots that are Hamming distance k away from target bitstring
             hamming_dists = np.zeros(self._num_qubits + 1)
+            success_prob = 0.0
+            success_prob_unc = 0.0
             for bitstring, count in circ_result.items():
                 # Compute success probability
-                success_prob = 0.0
-                if bitstring == target_bs:
-                    success_prob = count / sum(circ_result.values())
-                    success_prob_unc = np.sqrt(success_prob * (1 - success_prob))
-                    if self._analyzed_quantity == "Success Probability":
-                        y_data.append(success_prob)
-                        y_data_unc.append(success_prob_unc)
+                if self._analyzed_quantity == "Success Probability":
+                    if bitstring == target_bs:
+                        success_prob = count / sum(circ_result.values())
+                        success_prob_unc = np.sqrt(success_prob * (1 - success_prob))
+                        break
+                else:  
+                    # Compute hamming distance proportions
+                    target_bs_to_list = [int(char) for char in target_bs]
+                    actual_bs_to_list = [int(char) for char in bitstring]
+                    k = int(round(hamming(target_bs_to_list, actual_bs_to_list) * self._num_qubits))
+                    hamming_dists[k] += count / sum(circ_result.values())
 
-                # Compute hamming distance proportions
-                target_bs_to_list = [int(char) for char in target_bs]
-                actual_bs_to_list = [int(char) for char in bitstring]
-                k = int(round(hamming(target_bs_to_list, actual_bs_to_list) * self._num_qubits))
-                hamming_dists[k] += count / sum(circ_result.values())
+            if self._analyzed_quantity == "Success Probability":
+                y_data.append(success_prob)
+                y_data_unc.append(success_prob_unc)
+                continue
 
             # Compute hamming distance uncertainties
             hamming_dist_unc = np.sqrt(hamming_dists * (1 - hamming_dists))

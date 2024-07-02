@@ -96,12 +96,12 @@ def run_bench(hgp, backends, depths=[8], trials=10,
                 
                 #generate the circuits
                 mqv_exp = MirrorQuantumVolume(qubits=qset,backend=backend_real,trials=trials,
-                                      split_inverse=True,pauli_randomize=True,
-                                      middle_pauli_randomize=False, calc_probabilities=False,
-                                     he = he)
+                                      pauli_randomize=True, he = he)
         
     
-                mqv_exp.analysis.set_options(plot=False, calc_hop=False)
+                mqv_exp.analysis.set_options(plot=False, 
+                                             calc_hop=False,
+                                             analyzed_quantity='Success Probability')
                 
                 #Do this so it won't compile outside the qubit sets
                 cust_map = []
@@ -155,18 +155,7 @@ def run_bench(hgp, backends, depths=[8], trials=10,
     
             for k in range(len(result_dict[backend][depth]['sets'])):
     
-                result_dict[backend][depth]['data'].append([])
-                
-    
-                for nt in range(trials):
-    
-                        cur_exp = expdata.child_data()[j].child_data()[k].data()[nt]
-                    
-                        nshots = cur_exp['shots']
-                        targ_bstr = cur_exp['metadata']['target_bitstring']
-                        cnt_dict = cur_exp['counts']
-                        result_dict[backend][depth]['data'][-1].append(cnt_dict.get(targ_bstr,0)/nshots)
-    
+                result_dict[backend][depth]['data'].append([float(probi) for probi in list(expdata.child_data()[j].child_data()[k].artifacts()[0].data)])
                 result_dict[backend][depth]['mean'].append(float(np.mean(result_dict[backend][depth]['data'][-1])))
                 result_dict[backend][depth]['std'].append(float(np.std(result_dict[backend][depth]['data'][-1])))
 
