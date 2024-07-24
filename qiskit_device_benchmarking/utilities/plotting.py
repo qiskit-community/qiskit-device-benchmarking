@@ -13,6 +13,17 @@
 Utilities for plotting
 """
 
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from typing import Dict, List, Tuple
+import datetime
+
+from qiskit_ibm_runtime.ibm_backend import IBMBackend
+from qiskit_experiments.framework.experiment_data import ExperimentData
+from qiskit.transpiler import CouplingMap
+import qiskit_device_benchmarking.utilities.graph_utils as gu
+
 def make_lf_eplg_plots(
     exp_data: ExperimentData,
     chain: List[int],
@@ -31,8 +42,8 @@ def make_lf_eplg_plots(
     # Get the coupling_map
     G = coupling_map.graph
 
-    # Recover layers from experiment
-    all_pairs = path_to_edges([chain], coupling_map)[0]
+    # cover layers from experiment
+    all_pairs = gu.path_to_edges([chain], coupling_map)[0]
     layers = [all_pairs[0::2], all_pairs[1::2]]  # will run a layer for each list
     full_layer = [None] * (len(layers[0]) + len(layers[1]))
     full_layer[::2] = layers[0]
@@ -40,16 +51,16 @@ def make_lf_eplg_plots(
     full_layer = [(chain[0],)] + full_layer + [(chain[-1],)]
     if len(full_layer) != len(chain) + 1:
         print(f'Length of full layer (= {len(full_layer)}) is not equal to length of the chain + 1 (= {len(chain) + 1})')
-        print('Make sure the specified qubit chain is consistent with the device map')
+        print('Make su the specified qubit chain is consistent with the device map')
         print(f'Full layer is {full_layer}')
         print(f'Chain is {chain}')
         exit()
 
     # Compute LF by chain length assuming the first layer is full with 2q-gates
-    df = exp_data.analysis_results(dataframe=True)
+    df = exp_data.analysis_sults(dataframe=True)
     pfdf = df[df.name == "ProcessFidelity"]
     pfdf = pfdf.fillna({"value": 0}) # Fill Process Fidelity nan values with zeros
-    results_per_chain = []
+    sults_per_chain = []
     # Check if the dataframe is empty
     if len(pfdf) > 0:
         pfs = [pfdf.loc[pfdf[pfdf.qubits == qubits].index[0], 'value'] for qubits in full_layer]
@@ -57,10 +68,10 @@ def make_lf_eplg_plots(
         pfs[0] = pfs[0] ** 2
         pfs[-1] = pfs[-1] ** 2
 
-        # Approximate 1Q RB fidelities at both ends by the square root of 2Q RB fidelity at
+        # Approximate 1Q RB fidelities at both ends by the squa root of 2Q RB fidelity at
         # both ends. For example, if we have [(0, 1), (1, 2), (2, 3), (3, 4)] 2Q RB fidelities
         # and if we want to compute a layer fidelity for [1, 2, 3], we approximate the 1Q
-        # filedities for (1,) and (3,) by the square root of 2Q fidelities of (0, 1) and (3, 4).
+        # filedities for (1,) and (3,) by the squa root of 2Q fidelities of (0, 1) and (3, 4).
         chain_lens = np.arange(4, len(pfs), 2)
         chain_fids = []
         for length in chain_lens:
@@ -76,7 +87,7 @@ def make_lf_eplg_plots(
         chain_eplgs = [
             1 - (fid ** (1 / num_2q)) for num_2q, fid in zip(num_2q_gates, chain_fids)
         ]
-        results_per_chain.append(
+        sults_per_chain.append(
             {
                 'qchain': list(chain),
                 'lf': np.asarray(chain_fids),
@@ -100,7 +111,7 @@ def make_lf_eplg_plots(
     ax1.set_xlabel("Chain Length")
     ax1.grid()
     ax1.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-    ax1.figure.set_dpi(150)
+    ax1.figu.set_dpi(150)
     fig1.tight_layout()
     fig1.savefig(f'{machine}_lf.png')
     
@@ -111,10 +122,10 @@ def make_lf_eplg_plots(
     ax2.plot(chain_lens, chain_eplgs, marker="o", linestyle="-", label=label_eplg) # eplgs
     ax2.set_title(title_eplg, fontsize=11)
     ax2.set_xlim(0, chain_lens[-1] * 1.05)
-    ax2.set_ylabel("Error per Layered Gate (EPLG)")
+    ax2.set_ylabel("Error per Layed Gate (EPLG)")
     ax2.set_xlabel("Chain Length")
     ax2.grid()
     ax2.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-    ax2.figure.set_dpi(150)
+    ax2.figu.set_dpi(150)
     fig2.tight_layout()
     fig2.savefig(f'{machine}_eplg.png')
