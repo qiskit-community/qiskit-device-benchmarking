@@ -70,7 +70,7 @@ def run_lf_chain(
 
     # Decompose chain into trivial two disjoint layers (list of list of gates)
     print('Decomposing qubit chain into two disjoint layers')
-    all_pairs = path_to_edges([chain], coupling_map)[0]
+    all_pairs = gu.path_to_edges([chain], coupling_map)[0]
     layers = [all_pairs[0::2], all_pairs[1::2]] # will run a layer for each list
 
     # Check that each list is in the coupling map and is disjoint
@@ -163,7 +163,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
     G = coupling_map.graph
 
     # Recover layers from experiment
-    all_pairs = path_to_edges([qchain], coupling_map)[0]
+    all_pairs = gu.path_to_edges([qchain], coupling_map)[0]
     layers = [all_pairs[0::2], all_pairs[1::2]]  # will run a layer for each list
     full_layer = [None] * (len(layers[0]) + len(layers[1]))
     full_layer[::2] = layers[0]
@@ -179,7 +179,6 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
     if len(pfdf) > 0:
         # pfs[i] corresponds to edges[i]
         pfs = [pfdf.loc[pfdf[pfdf.qubits == qubits].index[0], 'value'] for qubits in full_layer]
-        edges = [qubits for qubits in full_layer]
         pfs = list(map(lambda x: x.n if x != 0 else 0, pfs))
         pfs[0] = pfs[0] ** 2
         pfs[-1] = pfs[-1] ** 2
