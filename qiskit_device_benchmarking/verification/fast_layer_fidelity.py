@@ -69,7 +69,7 @@ def run_fast_lf(backends: List[str],
         print(f'Retrieving experiment results from {backend_name}')
         exp_data.block_for_results()
 
-        # Get LF and PELG data per length
+        # Get LF and EPLG data per length
         results_per_length = lfu.reconstruct_lf_per_length(exp_data, qchain, backend)
         results_per_length.to_csv(f'{backend_name}_lf_eplg_data.csv', float_format='%.15f')
 
