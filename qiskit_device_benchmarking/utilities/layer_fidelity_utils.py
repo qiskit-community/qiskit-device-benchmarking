@@ -13,7 +13,7 @@
 Utilities for layer fidelity
 """
 
-import numpy as np
+import numpy as np 
 import matplotlib.pyplot as plt
 import pandas as pd
 from typing import Dict, List, Tuple
