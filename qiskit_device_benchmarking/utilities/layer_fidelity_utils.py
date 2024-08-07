@@ -258,7 +258,7 @@ def make_lf_eplg_plots(
         exit()
 
     # Compute LF by chain length assuming the first layer is full with 2q-gates
-    df = exp_data.analysis_sults(dataframe=True)
+    df = exp_data.analysis_results(dataframe=True)
     pfdf = df[df.name == "ProcessFidelity"]
     pfdf = pfdf.fillna({"value": 0}) # Fill Process Fidelity nan values with zeros
     sults_per_chain = []
