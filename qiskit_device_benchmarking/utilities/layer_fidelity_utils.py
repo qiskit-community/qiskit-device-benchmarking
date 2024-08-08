@@ -33,7 +33,7 @@ def run_lf_chain(
     cliff_lengths: List[int]=[1, 10, 20, 30, 40, 60, 80, 100, 150, 200, 400],
     nshots: int=200
 ) -> ExperimentData:
-    
+
     """ General function to run LF on a list of chains using default or
     command lie arguments. Note: If one hopes to run LF on a single chain,
     the single chain should be passed as a list with one element.
@@ -47,7 +47,7 @@ def run_lf_chain(
     Returns:
     - List of ExperimentData objects
     """
-    
+
     # Get two qubit gate
     if "ecr" in backend.configuration().basis_gates:
         twoq_gate = "ecr"
@@ -55,13 +55,13 @@ def run_lf_chain(
         twoq_gate = "cz"
     else:
         twoq_gate = 'cx'
-    
+
     # Get one qubit basis gates
     oneq_gates = []
     for i in backend.configuration().basis_gates:
         if i.casefold()!=twoq_gate.casefold():
                 oneq_gates.append(i)
-    
+
     # Get the coupling_map
     coupling_map = CouplingMap(backend.configuration().coupling_map)
 
@@ -70,7 +70,8 @@ def run_lf_chain(
 
     # Decompose chain into trivial two disjoint layers (list of list of gates)
     print('Decomposing qubit chain into two disjoint layers')
-    all_pairs = gu.path_to_edges([chain], coupling_map)[0]
+    all_pairs = path_to_edges([chain], coupling_map)[0]
+    all_pairs = [tuple(pair) for pair in all_pairs] # make this is a list of tuples
     layers = [all_pairs[0::2], all_pairs[1::2]] # will run a layer for each list
 
     # Check that each list is in the coupling map and is disjoint
@@ -102,7 +103,7 @@ def run_lf_chain(
         one_qubit_basis_gates=oneq_gates,
     )
     lfexp.set_experiment_options(max_circuits=2 * nseeds * len(cliff_lengths))
-    
+
     # Generate all 2Q direct RB circuits
     circuits = lfexp.circuits()
     print(f"{len(circuits)} circuits are generated.")
@@ -164,6 +165,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
 
     # Recover layers from experiment
     all_pairs = gu.path_to_edges([qchain], coupling_map)[0]
+    all_pairs = [tuple(pair) for pair in all_pairs] # make sure these are all tuples
     layers = [all_pairs[0::2], all_pairs[1::2]]  # will run a layer for each list
     full_layer = [None] * (len(layers[0]) + len(layers[1]))
     full_layer[::2] = layers[0]
@@ -177,9 +179,10 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
     results_per_chain = []
     # Check if the dataframe is empty
     if len(pfdf) > 0:
-        # pfs[i] corresponds to edges[i]
         pfs = [pfdf.loc[pfdf[pfdf.qubits == qubits].index[0], 'value'] for qubits in full_layer]
         pfs = list(map(lambda x: x.n if x != 0 else 0, pfs))
+        pfs[0] = pfs[0] ** 2
+        pfs[-1] = pfs[-1] ** 2        
         pfs[0] = pfs[0] ** 2
         pfs[-1] = pfs[-1] ** 2
 
@@ -226,6 +229,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
     
 
 def make_lf_eplg_plots(
+    backend: IBMBackend,
     exp_data: ExperimentData,
     chain: List[int],
     machine: str
@@ -244,7 +248,8 @@ def make_lf_eplg_plots(
     G = coupling_map.graph
 
     # cover layers from experiment
-    all_pairs = gu.path_to_edges([chain], coupling_map)[0]
+    all_pairs = gu.path_to_edges([chain], coupling_map)[0] # list of lists
+    all_pairs = [tuple(pair) for pair in all_pairs] # make sure these are all tuples
     layers = [all_pairs[0::2], all_pairs[1::2]]  # will run a layer for each list
     full_layer = [None] * (len(layers[0]) + len(layers[1]))
     full_layer[::2] = layers[0]
@@ -261,11 +266,12 @@ def make_lf_eplg_plots(
     df = exp_data.analysis_results(dataframe=True)
     pfdf = df[df.name == "ProcessFidelity"]
     pfdf = pfdf.fillna({"value": 0}) # Fill Process Fidelity nan values with zeros
-    sults_per_chain = []
     # Check if the dataframe is empty
     if len(pfdf) > 0:
         pfs = [pfdf.loc[pfdf[pfdf.qubits == qubits].index[0], 'value'] for qubits in full_layer]
         pfs = list(map(lambda x: x.n if x != 0 else 0, pfs))
+        pfs[0] = pfs[0] ** 2
+        pfs[-1] = pfs[-1] ** 2        
         pfs[0] = pfs[0] ** 2
         pfs[-1] = pfs[-1] ** 2
 
@@ -288,18 +294,8 @@ def make_lf_eplg_plots(
         chain_eplgs = [
             1 - (fid ** (1 / num_2q)) for num_2q, fid in zip(num_2q_gates, chain_fids)
         ]
-        sults_per_chain.append(
-            {
-                'qchain': list(chain),
-                'lf': np.asarray(chain_fids),
-                'eplg': np.asarray(chain_eplgs),
-                'length': np.asarray(chain_lens),
-                'job_ids': exp_data.job_ids
-            }
-        )
-    
     time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Plot LF by chain length
     fig1, ax1 = plt.subplots(figsize=(8.5, 4))
     title_lf = f"{machine} {time} LF for fixed {len(chain)}q chains"
@@ -312,10 +308,10 @@ def make_lf_eplg_plots(
     ax1.set_xlabel("Chain Length")
     ax1.grid()
     ax1.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-    ax1.figu.set_dpi(150)
+    ax1.figure.set_dpi(150)
     fig1.tight_layout()
     fig1.savefig(f'{machine}_lf.png')
-    
+
     # Plot EPLG by chain length
     fig2, ax2 = plt.subplots(figsize=(8.5, 4))
     label_eplg = f'Eplg: {np.round(chain_eplgs[-1],3)}'
@@ -327,6 +323,6 @@ def make_lf_eplg_plots(
     ax2.set_xlabel("Chain Length")
     ax2.grid()
     ax2.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-    ax2.figu.set_dpi(150)
+    ax2.figure.set_dpi(150)
     fig2.tight_layout()
     fig2.savefig(f'{machine}_eplg.png')
