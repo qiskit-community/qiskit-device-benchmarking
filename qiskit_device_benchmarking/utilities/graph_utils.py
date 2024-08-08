@@ -82,7 +82,7 @@ def path_to_edges(paths, coupling_map=None):
                 if tuple(tmp_set) not in coupling_map:
                     tmp_set.reverse()
                     if tuple(tmp_set) not in coupling_map:
-                      raise ValueError('Path not found in coupling map')
+                        raise ValueError('Path not found in coupling map')
                       
             if len(path_i)>2:
                 new_path[-1].append(tmp_set)
@@ -90,7 +90,6 @@ def path_to_edges(paths, coupling_map=None):
                 new_path.append(tmp_set)
         
     return new_path
-
 
 def build_sys_graph(nq, coupling_map, faulty_qubits=None):
     
