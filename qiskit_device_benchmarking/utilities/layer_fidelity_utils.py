@@ -70,7 +70,7 @@ def run_lf_chain(
 
     # Decompose chain into trivial two disjoint layers (list of list of gates)
     print('Decomposing qubit chain into two disjoint layers')
-    all_pairs = path_to_edges([chain], coupling_map)[0]
+    all_pairs = gu.path_to_edges([chain], coupling_map)[0]
     all_pairs = [tuple(pair) for pair in all_pairs] # make this is a list of tuples
     layers = [all_pairs[0::2], all_pairs[1::2]] # will run a layer for each list
 
