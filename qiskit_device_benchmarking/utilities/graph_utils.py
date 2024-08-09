@@ -79,10 +79,10 @@ def path_to_edges(paths, coupling_map=None):
             
             tmp_set = path_i[i:(i+2)]
             if coupling_map is not None:
-                if tmp_set not in coupling_map:
+                if tuple(tmp_set) not in coupling_map:
                     tmp_set.reverse()
-                    if tmp_set not in coupling_map:
-                      raise ValueError('Path not found in coupling map')
+                    if tuple(tmp_set) not in coupling_map:
+                        raise ValueError('Path not found in coupling map')
                       
             if len(path_i)>2:
                 new_path[-1].append(tmp_set)
