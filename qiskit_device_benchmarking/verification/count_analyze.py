@@ -44,15 +44,17 @@ def generate_plot(out_data, degree_data, args):
     plt.xticks(rotation=45, ha='right')
     
     ax1 = plt.gca()
-    ax2 = ax1.twinx()
-    ax2.plot(range(len(sortinds)),degree_data[sortinds],marker='x', color='black')
+
+    if args.degree:
+        ax2 = ax1.twinx()
+        ax2.plot(range(len(sortinds)),degree_data[sortinds],marker='x', color='black')
+        ax2.set_ylabel('Average Degree')
     
     
         
     plt.xlabel('Backend')
     plt.grid(axis='y')
     ax1.set_ylabel('Largest Connected Region')
-    ax2.set_ylabel('Average Degree')
     plt.title('CHSH Test on Each Edge to Determine Qubit Count')
     plt.savefig('count_plot_%s.pdf'%fu.timestamp_name(),bbox_inches='tight')
     plt.close()
@@ -75,6 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--backends', help='Comma separated list of '
                         + 'backends to plot. If empty plot all.')
     parser.add_argument('--plot', help='Generate a plot', action='store_true')
+    parser.add_argument('--degree', help='Add degree to the plot', action='store_true')
     args = parser.parse_args()
     
     #import from results files and concatenate into a larger results
