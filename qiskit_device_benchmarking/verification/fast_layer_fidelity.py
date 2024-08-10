@@ -50,7 +50,7 @@ def run_fast_lf(backends: List[str],
     for backend_name in backends:    
         # Make experiment folder 
         time = datetime.datetime.now().strftime('%Y-%m-%d-%H.%M.%S')
-        directory = f"{time}_layer_fidelity"
+        directory = f"{time}_{backend_name}_layer_fidelity"
         path = os.path.join('', directory)
         print(f'Creating folder {directory}')
         os.mkdir(path)
