@@ -43,18 +43,28 @@ def run_fast_lf(backends: List[str],
     act_name: str,
     hgp: str):
     
-    # load the service
+    # Make a general experiment folder 
+    parent_path = os.path.join(os.getcwd(), 'layer_fidelity')
+    try:
+        print(f'Creating folder {parent_path}')
+        os.mkdir(parent_path)
+    except:
+        pass
+    print(f'Changing directory to {parent_path}')
+    os.chdir(parent_path)
+    
+    # Load the service
     print('Loading service')
     service = QiskitRuntimeService(name=act_name)
     
     for backend_name in backends:    
-        # Make experiment folder 
+        # Make an experiment folder each backend
         time = datetime.datetime.now().strftime('%Y-%m-%d-%H.%M.%S')
         directory = f"{time}_{backend_name}_layer_fidelity"
-        path = os.path.join('', directory)
-        print(f'Creating folder {directory}')
+        path = os.path.join(parent_path, directory)
+        print(f'Creating folder {path}')
         os.mkdir(path)
-        print(f'Changing directory to {directory}')
+        print(f'Changing directory to {path}')
         os.chdir(path)
         
         # Get the real backend
