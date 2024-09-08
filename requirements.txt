@@ -4,3 +4,4 @@ qiskit>=0.45
 qiskit-experiments>=0.6
 matplotlib>=3.4
 rustworkx
+networkx
