@@ -16,7 +16,6 @@ Fast benchmark via mirror circuits
 import argparse
 import numpy as np
 import rustworkx as rx
-from qiskit_ibm_provider import IBMProvider
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit.transpiler import Target, CouplingMap
 from qiskit_experiments.framework import (ParallelExperiment, BatchExperiment)

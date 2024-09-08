@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('-bg', '--backend_group', 
                         help='specify backend group in config file', 
                         default='backends')
-    parser.add_argument('--hgp', help='specify hgp / qiskit instance', default ='')
+    parser.add_argument('--hgp', help='specify hgp / qiskit instance')
     parser.add_argument('--name', help='Account name', default='')
     parser.add_argument('--nseeds', help='number of seeds', default=6)
     parser.add_argument('--seed', help='seed to use', default=42)
