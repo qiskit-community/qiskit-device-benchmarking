@@ -24,5 +24,5 @@ job = submit_mirror_test(backend, num_qubits=100, num_gates=2500)
 
 # wait for job to complete execution, then...
 result = job.result()
-analyze_mirror_result(result, accuracy_threshold=0.1)
+analyze_mirror_result(result, accuracy_threshold=0.1, make_plots=True)
 ```
