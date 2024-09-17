@@ -326,3 +326,24 @@ def make_lf_eplg_plots(
     ax2.figure.set_dpi(150)
     fig2.tight_layout()
     fig2.savefig(f'{machine}_eplg.png')
+
+
+def get_lf_chain(
+    backend: IBMBackend,
+    chain_length: int=100
+):
+    """ Get the chain reported from the backend for length chain_length
+    
+    Args:
+    - backend: ibm backend
+    - chain_length: the chain length to return
+
+    Return:
+    - chain: list of qubits of length chain_length (or None if not found)
+    """
+
+    for i in backend.properties().general_qlists:
+        if i['name']=='lf_%d'%chain_length:
+            return i['qubits']
+        
+    return None
