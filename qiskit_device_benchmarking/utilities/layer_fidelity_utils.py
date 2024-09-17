@@ -211,7 +211,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
             # Get EPLG by chain length
             num_2q_gates = [l - 1 for l in lens]
             chain_eplgs = [
-                1 - (fid ** (1 / num_2q)) for num_2q, fid in zip(num_2q_gates, chain_fids)
+                4/5 * (1 - (fid ** (1 / num_2q))) for num_2q, fid in zip(num_2q_gates, chain_fids)
             ]
             results_per_chain.append(
                 {
@@ -292,7 +292,7 @@ def make_lf_eplg_plots(
         # Get EPLG by chain length
         num_2q_gates = [length - 1 for length in chain_lens]
         chain_eplgs = [
-            1 - (fid ** (1 / num_2q)) for num_2q, fid in zip(num_2q_gates, chain_fids)
+            4/5 * (1 - (fid ** (1 / num_2q))) for num_2q, fid in zip(num_2q_gates, chain_fids)
         ]
     time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
