@@ -13,3 +13,7 @@ This folder contains example notebooks for running benchmarks.
 - [Coherence and Proxy Bell](https://github.com/qiskit-community/qiskit-device-benchmarking/blob/main/notebooks/bell_tphi.ipynb): Runs T1/T2 across the device and looks at hellinger fidelities of Bell states produced with repeated two-qubit gates.
 
 - [Extract Benchmarks](https://github.com/qiskit-community/qiskit-device-benchmarking/blob/main/notebooks/extract_benchmarks.ipynb): Example notebook for extracting and plotting benchmarks and properties from a list of devices. This information includes LF, EPLG, 2Q errors, 1Q errors, T1s, T2s, and readout errors, but can be easily modified to include any other properties.
+
+- [MCM RB](mcm_rb.ipynb): Example notebook for running Mid-circuit measurement RB experiment.
+
+- [Dynamic circuits RB](dynamic_circuits_rb.ipynb): Example notebook for running dynamic circuits RB experiment.
