@@ -23,6 +23,8 @@ For clarity here we provide links from various papers to the code in this repo. 
 
 - [Layer Fidelity](https://arxiv.org/abs/2311.05933): David C. McKay, Ian Hincks, Emily J. Pritchett, Malcolm Carroll, Luke C. G. Govia, Seth T. Merkel. Benchmarking Quantum Processor Performance at Scale (2023). [Code](https://github.com/qiskit-community/qiskit-device-benchmarking/tree/main/notebooks/layer_fidelity.ipynb)
 - [Mirror QV](https://arxiv.org/abs/2303.02108): Mirko Amico, Helena Zhang, Petar Jurcevic, Lev S. Bishop, Paul Nation, Andrew Wack, David C. McKay. Defining Standard Strategies for Quantum Benchmarks (2023). [Code](https://github.com/qiskit-community/qiskit-device-benchmarking/tree/main/qiskit_device_benchmarking/bench_code/mrb)
+- [Mid-circuit measurement RB](https://arxiv.org/abs/2207.04836): Luke C. G. Govia, Petar Jurcevic, Christopher J. Wood, Naoki Kanazawa, Seth T. Merkel, David C. McKay. A randomized benchmarking suite for mid-circuit measurements (2022). [Code](notebooks/mcm_rb.ipynb)
+- [Dynamic circuits RB](https://arxiv.org/abs/2408.07677): Liran Shirizly, Luke C. G. Govia, David C. McKay. Randomized Benchmarking Protocol for Dynamic Circuits (2024). [Code](notebooks/dynamic_circuits_rb.ipynb)
 
 # Installation
 
