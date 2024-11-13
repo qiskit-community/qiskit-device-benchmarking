@@ -27,6 +27,7 @@ from qiskit.providers.backend import Backend
 from qiskit.providers.options import Options
 from qiskit.exceptions import QiskitError
 from qiskit.transpiler import CouplingMap, PassManager, InstructionDurations
+from qiskit import transpile
 from qiskit.circuit.library import CXGate, CYGate, CZGate, ECRGate, SwapGate, XGate, RZGate
 from qiskit.transpiler.passes import (
     ALAPScheduleAnalysis,
@@ -42,6 +43,7 @@ from qiskit_experiments.library.randomized_benchmarking.standard_rb import (
 from qiskit_experiments.library.randomized_benchmarking.clifford_utils import (
     inverse_1q,
     _clifford_1q_int_to_instruction,
+    _clifford_2q_int_to_instruction,
 )
 from .mirror_rb_analysis import MirrorRBAnalysis
 from qiskit_device_benchmarking.utilities.clifford_utils import compute_target_bitstring
@@ -113,6 +115,8 @@ class MirrorRB(StandardRB):
         seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
         full_sampling: bool = False,
         inverting_pauli_layer: bool = False,
+        initial_entangling_angle: float = 0.0,
+        final_entangling_angle: float = 0.0,
     ):
         """Initialize a mirror randomized benchmarking experiment.
 
@@ -173,6 +177,9 @@ class MirrorRB(StandardRB):
 
         self._distribution = self.sampler_map.get(sampling_algorithm)(seed=seed, **sampler_opts)
         self.analysis = MirrorRBAnalysis()
+        self._two_qubit_gate = two_qubit_gate
+        self._pre_theta = initial_entangling_angle
+        self._post_theta = final_entangling_angle
 
     @classmethod
     def _default_experiment_options(cls) -> Options:
@@ -216,8 +223,8 @@ class MirrorRB(StandardRB):
         Returns:
             A list of :class:`QuantumCircuit`.
         """
-        sequences = self._sample_sequences()
-        circuits = self._sequences_to_circuits(sequences)
+        self._sequences = self._sample_sequences()
+        circuits = self._sequences_to_circuits(self._sequences)
 
         return circuits
 
@@ -358,16 +365,44 @@ class MirrorRB(StandardRB):
             A list of RB circuits.
         """
         basis_gates = tuple(self.backend.operation_names)
-        circuits = []
+        
+        # pre-transpile pre and post rotations
+        qrx = []
+        for theta in [self._pre_theta, self._post_theta]:
+            qc = QuantumCircuit(1)
+            qc.rx(theta, 0)
+            qc = transpile(qc, basis_gates=basis_gates, optimization_level=3)
+            qrx.append(qc)
+        # transpile 2q gates
+        qc2q = QuantumCircuit(2)
+        qc2q.append(self._two_qubit_gate, [0, 1])
+        qc2q = transpile(qc2q, basis_gates=basis_gates, optimization_level=3)
 
+        circuits = []
         for i, seq in enumerate(sequences):
             circ = QuantumCircuit(self.num_qubits)
             # Hack to get target bitstrings until qiskit-terra#9475 is resolved
             circ_target = QuantumCircuit(self.num_qubits)
-            for layer in seq:
+            for l, layer in enumerate(seq):
                 for elem in layer:
-                    circ.append(self._to_instruction(elem.op, basis_gates), elem.qargs)
-                    circ_target.append(self._to_instruction(elem.op), elem.qargs)
+                    instr = self._to_instruction(elem.op)
+                    qargs = elem.qargs
+                    if l == (len(seq) - 2) and instr.name == 'cx':
+                        for gate in qrx[1]:
+                            circ.append(gate.operation, [qargs[0]])
+                    if len(qargs) == 2:
+                        # implement the compiled 2q gate
+                        for gate in qc2q:
+                            if len(gate.qubits) == 1:
+                                circ.append(gate.operation, [qargs[gate.qubits[0]._index]])
+                            else:
+                                circ.append(gate.operation, qargs)
+                    else:
+                        circ.append(self._to_instruction(elem.op, basis_gates), qargs)
+                    if l == 1 and instr.name == 'cx':
+                        for gate in qrx[0]:
+                            circ.append(gate.operation, [qargs[0]])
+                    circ_target.append(instr, elem.qargs)
                 circ.append(Barrier(self.num_qubits), circ.qubits)
 
             circ.metadata = {
