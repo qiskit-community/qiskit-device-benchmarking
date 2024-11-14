@@ -25,7 +25,8 @@ def submit_mirror_test(backend: IBMBackend,
                        theta: float=0,
                        path: Optional[tuple[int, ...]] = None,
                        path_strategy: str = "eplg_chain",
-                       noise_model: Optional[List[LayerError]] = None) -> RuntimeJob:
+                       noise_model: Optional[List[LayerError]] = None,
+                       execution_path: Optional[str] = None) -> RuntimeJob:
     """
     Constructs a mirror circuit test based upon a 1D Ising model simulation. The 1D model
     is executed on a line of qubits. The particular line can be selected automatically by
@@ -54,6 +55,8 @@ def submit_mirror_test(backend: IBMBackend,
             from the longest possible chain on the device.
         noise_model: A noise model from a prior NoiseLearner or Estimator job on the same
             layers as used in the benchmark circuit.
+        execution_path: A value to pass to the experimental "execution_path" option of the
+            Estimator.
 
     Returns:
         A RuntimeJob corresopnding to the Estimator query of the benchmark.
@@ -91,12 +94,15 @@ def submit_mirror_test(backend: IBMBackend,
         options.resilience.layer_noise_model = noise_model
     else:
         options.resilience.layer_noise_learning.shots_per_randomization = 64
-        options.resilience.layer_noise_learning.num_randomizations = 1000
+        options.resilience.layer_noise_learning.num_randomizations = 50
+        options.resilience.layer_noise_learning.layer_pair_depths = [0,6,16,32,64]
 
     # experimental options
     options.experimental = {
         "execution": {"fast_parametric_update": True}
     }
+    if execution_path:
+        options.experimental["execution_path"] = execution_path
 
     estimator = Estimator(backend, options=options)
     return estimator.run(pubs)
