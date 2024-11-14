@@ -317,11 +317,14 @@ def run_twirled(
     shots: int, 
     rep_delay: float,
     num_circuits: int,
+    execution_path: str,
 ):
     (transpiled_circ , _) = create_hardware_aware_circuit(width=width, layers=layers, backend=backend, parameterized=False)
     twirling_opts = TwirlingOptions(num_randomizations=num_circuits, shots_per_randomization=shots, enable_gates=True)
     experimental_opts = {"execution": {"fast_parametric_update": True}}
     options = SamplerOptions(twirling=twirling_opts, experimental=experimental_opts)
+    if execution_path:
+        options.experimental["execution_path"] = execution_path
 
     with Session(backend=backend) as session:
         sampler=Sampler(mode=session, options=options)
@@ -337,6 +340,7 @@ def run_parameterized(
     shots: int, 
     rep_delay: float,
     num_circuits: int,
+    execution_path: str,
 ):
     (transpiled_circ, parameters) = create_hardware_aware_circuit(width=width, layers=layers, backend=backend, parameterized=True)
     seed = 234987
@@ -347,6 +351,8 @@ def run_parameterized(
     
     experimental_opts = {"execution": {"fast_parametric_update": True}}
     options = SamplerOptions(experimental=experimental_opts)
+    if execution_path:
+        options.experimental["execution_path"] = execution_path
 
     with Session(backend=backend) as session:
         sampler=Sampler(mode=session, options=options)
@@ -367,6 +373,7 @@ class clops_benchmark:
         circuit_type: str = "twirled",
         batch_size: int = None,
         pipelines: int = 1,
+        execution_path: Optional[str] = None,
     ):
         
         """Run CLOPS benchmark through Sampler primitive
@@ -392,6 +399,8 @@ class clops_benchmark:
                         for `instantiated` circuit_type. Default is None
             pipelines: Optional, number of parallel processes used to instantiate parameters and submit jobs to
                     the backend. Only used for `instantiated` circuit_type.  Default is 1
+            execution_path: Optional, A value to pass to the experimental "execution_path" option of the
+                        Sampler
         """
 
         #service = QiskitRuntimeService(channel="ibm_quantum")
@@ -404,10 +413,10 @@ class clops_benchmark:
                                "batch_size": batch_size, "pipelines": pipelines}
         
         if circuit_type == "twirled":
-            self.job = run_twirled(backend, width, layers, shots, rep_delay, num_circuits)
+            self.job = run_twirled(backend, width, layers, shots, rep_delay, num_circuits, execution_path)
             self.clops = self._clops_throughput_sampler
         elif circuit_type == "parameterized":
-            self.job = run_parameterized(backend, width, layers, shots, rep_delay, num_circuits)
+            self.job = run_parameterized(backend, width, layers, shots, rep_delay, num_circuits, execution_path)
             self.clops = self._clops_throughput_sampler
         elif circuit_type == "instantiated":
             raise ValueError("'circuit_type' instantiated not yet supported")

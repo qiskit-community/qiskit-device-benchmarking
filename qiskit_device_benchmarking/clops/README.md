@@ -14,6 +14,8 @@ parameterized utility scale  hardware efficient circuits.
  up to the vendor on how to optimally execute these circuits for 
  maximal throughput. 
 
+CLOPS now supports the new `gen3-turbo` flag for execution path available
+on some of our devices.
 
 ## Example
 
@@ -28,6 +30,11 @@ service = QiskitRuntimeService(channel="ibm_quantum",
 # 100 wide by 100 layers, etc)  Note this is done in a session and currently
 # takes about 10 minutes to run
 my_clops_run = clops_benchmark(service, "your-favorite-ibm-quantum-computer")
+
+# To run clops with the new new `gen3-turbo` path, you can specify the 
+# execution path. For the new faster path you should increase the number
+# of circuits to 5,000
+my_clops_run = clops_benchmark(service, "machine supporting gen3-turbo", execution_path='gen3-turbo', num_circuits = 5000)
 
 # We can check the attributes of the benchmark run
 print(my_clops_run.job_attributes)
