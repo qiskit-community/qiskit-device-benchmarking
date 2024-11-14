@@ -91,7 +91,7 @@ def submit_mirror_test(backend: IBMBackend,
         options.resilience.layer_noise_model = noise_model
     else:
         options.resilience.layer_noise_learning.shots_per_randomization = 64
-        options.resilience.layer_noise_learning.num_randomizations = 1000
+        options.resilience.layer_noise_learning.num_randomizations = 50
 
     # experimental options
     options.experimental = {

@@ -211,7 +211,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
             # Get EPLG by chain length
             num_2q_gates = [l - 1 for l in lens]
             chain_eplgs = [
-                1 - (fid ** (1 / num_2q)) for num_2q, fid in zip(num_2q_gates, chain_fids)
+                4/5 * (1 - (fid ** (1 / num_2q))) for num_2q, fid in zip(num_2q_gates, chain_fids)
             ]
             results_per_chain.append(
                 {
@@ -292,7 +292,7 @@ def make_lf_eplg_plots(
         # Get EPLG by chain length
         num_2q_gates = [length - 1 for length in chain_lens]
         chain_eplgs = [
-            1 - (fid ** (1 / num_2q)) for num_2q, fid in zip(num_2q_gates, chain_fids)
+            4/5 * (1 - (fid ** (1 / num_2q))) for num_2q, fid in zip(num_2q_gates, chain_fids)
         ]
     time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -326,3 +326,24 @@ def make_lf_eplg_plots(
     ax2.figure.set_dpi(150)
     fig2.tight_layout()
     fig2.savefig(f'{machine}_eplg.png')
+
+
+def get_lf_chain(
+    backend: IBMBackend,
+    chain_length: int=100
+):
+    """ Get the chain reported from the backend for length chain_length
+    
+    Args:
+    - backend: ibm backend
+    - chain_length: the chain length to return
+
+    Return:
+    - chain: list of qubits of length chain_length (or None if not found)
+    """
+
+    for i in backend.properties().general_qlists:
+        if i['name']=='lf_%d'%chain_length:
+            return i['qubits']
+        
+    return None

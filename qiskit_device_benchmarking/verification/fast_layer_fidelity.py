@@ -72,7 +72,7 @@ def run_fast_lf(backends: List[str],
         backend = service.backend(backend_name, instance=hgp)
 
         # Get 100Q chain from qiskit
-        qchain = backend.properties().general_qlists[0]['qubits']
+        qchain = lfu.get_lf_chain(backend, 100)
         print(f'100Q chain for {backend_name} is: ', qchain)
 
         # Run LF
