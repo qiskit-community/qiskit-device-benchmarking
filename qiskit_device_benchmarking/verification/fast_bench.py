@@ -25,6 +25,11 @@ import qiskit_device_benchmarking.utilities.file_utils as fu
 import qiskit_device_benchmarking.utilities.graph_utils as gu
 from  qiskit_device_benchmarking.bench_code.mrb import MirrorQuantumVolume
 
+import warnings
+
+from qiskit.circuit import Gate
+xslow = Gate(name='xslow', num_qubits=1, params=[])
+
 def run_bench(hgp, backends, depths=[8], trials=10, 
               nshots=100, he=True, dd=True, opt_level=3, act_name=''):
     
@@ -45,6 +50,8 @@ def run_bench(hgp, backends, depths=[8], trials=10,
     Returns:
         flat list of lists of qubit chains
     """
+
+    warnings.filterwarnings("error", message=".*run.*", category=DeprecationWarning, append=False)
     
     #load the service
     service = QiskitRuntimeService(name=act_name)
@@ -108,7 +115,14 @@ def run_bench(hgp, backends, depths=[8], trials=10,
                     if i[0] in qset and i[1] in qset:
                         cust_map.append(i)
                 
-                cust_target = Target.from_configuration(basis_gates = backend_real.configuration().basis_gates,
+                basis_gates = backend_real.configuration().basis_gates
+                if 'xslow' in basis_gates:
+                    basis_gates.remove('xslow')
+                if 'rx' in basis_gates:
+                    basis_gates.remove('rx')
+                if 'rzz' in basis_gates:
+                    basis_gates.remove('rzz')
+                cust_target = Target.from_configuration(basis_gates = basis_gates,
                                                        num_qubits=nq,
                                                        coupling_map=CouplingMap(cust_map))
                 
