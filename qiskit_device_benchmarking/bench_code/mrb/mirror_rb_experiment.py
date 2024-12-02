@@ -357,7 +357,7 @@ class MirrorRB(StandardRB):
         Returns:
             A list of RB circuits.
         """
-        basis_gates = self._get_basis_gates()  # pylint: disable=no-member
+        basis_gates = tuple(self.backend.operation_names)
         circuits = []
 
         for i, seq in enumerate(sequences):
