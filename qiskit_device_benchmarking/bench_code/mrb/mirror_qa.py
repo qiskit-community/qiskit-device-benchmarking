@@ -13,15 +13,22 @@
 Mirror QA Experiment class.
 """
 from typing import Union, Iterable, Optional, List, Sequence
+import numpy as np
 from numpy import pi
 from numpy.random import Generator, BitGenerator, SeedSequence
-import rustworkx as rx
+from scipy.stats import entropy
+from uncertainties import unumpy as unp
+from scipy.spatial.distance import hamming
 
 from qiskit.circuit import Instruction
 from qiskit.providers.backend import Backend
 from qiskit.circuit.library import CXGate
 
-from .mirror_rb_experiment import MirrorRB
+from qiskit_experiments.framework import ExperimentData
+from qiskit_experiments.data_processing import DataProcessor
+
+from .mirror_rb_experiment import MirrorRB, MirrorRBAnalysis
+from .mirror_qv_analysis import _ComputeQuantities
 
 
 class MirrorQA(MirrorRB):
@@ -75,6 +82,9 @@ class MirrorQA(MirrorRB):
         backend: Optional[Backend] = None,
         seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
         inverting_pauli_layer: bool = False,
+        initial_entangling_angle: float = pi/2,
+        final_entangling_angle: float = 0,
+        analyzed_quantity: str = "Effective Polarization",
     ):
         """Initialize a mirror quantum awesomeness experiment.
 
@@ -118,13 +128,166 @@ class MirrorQA(MirrorRB):
             pauli_randomize=pauli_randomize,
             sampling_algorithm=sampling_algorithm,
             two_qubit_gate_density=two_qubit_gate_density,
-            two_qubit_gate=two_qubit_gate,
+            two_qubit_gate=CXGate(),
             num_samples=num_samples,
             sampler_opts=sampler_opts,
             seed=seed,
             inverting_pauli_layer=inverting_pauli_layer,
             full_sampling=False,
             start_end_clifford=False,
-            initial_entangling_angle = pi/2,
-            final_entangling_angle = pi/2,
+            initial_entangling_angle = initial_entangling_angle,
+            final_entangling_angle = final_entangling_angle,
         )
+
+        self.analysis = MirrorQAAnalysis()
+
+class MirrorQAAnalysis(MirrorRBAnalysis):
+
+    @classmethod
+    def _default_options(cls):
+        default_options = super()._default_options()
+
+        default_options.set_validator(
+            field="analyzed_quantity",
+            validator_value=[
+                "Success Probability",
+                "Adjusted Success Probability",
+                "Effective Polarization",
+                "Mutual Information"
+            ],
+        )
+        return default_options
+
+    def _initialize(self, experiment_data: ExperimentData):
+        """Initialize curve analysis by setting up the data processor for Mirror
+        RB data.
+
+        Args:
+            experiment_data: Experiment data to analyze.
+        """
+        super()._initialize(experiment_data)
+
+        num_qubits = len(self._physical_qubits)
+        target_bs = []
+        pairs = []
+        singles = []
+        for circ_result in experiment_data.data():
+            pairs.append(circ_result["metadata"]["pairs"])
+            singles.append(circ_result["metadata"]["singles"])
+            if circ_result["metadata"]["inverting_pauli_layer"] is True:
+                target_bs.append("0" * num_qubits)
+            else:
+                target_bs.append(circ_result["metadata"]["target"])
+
+        self.set_options(
+            data_processor=DataProcessor(
+                input_key="counts",
+                data_actions=[
+                    _ComputeQAQuantities(
+                        analyzed_quantity=self.options.analyzed_quantity,
+                        num_qubits=num_qubits,
+                        target_bs=target_bs,
+                        pairs=pairs,
+                        singles=singles,
+                        coupling_map=circ_result["metadata"]["coupling_map"],
+                    )
+                ],
+            )
+        )
+
+class _ComputeQAQuantities(_ComputeQuantities):
+    """Data processing node for computing useful mirror RB quantities from raw results."""
+
+    def __init__(
+        self,
+        num_qubits,
+        target_bs,
+        pairs,
+        singles,
+        coupling_map,
+        analyzed_quantity: str = "Effective Polarization",
+        validate: bool = True,
+    ):
+        """
+        Args:
+            num_qubits: Number of qubits.
+            quantity: The quantity to calculate.
+            validate: If set to False the DataAction will not validate its input.
+        """
+        super().__init__(
+            num_qubits = num_qubits,
+            target_bs = target_bs,
+            pairs = pairs,
+            singles = singles,
+            analyzed_quantity = analyzed_quantity,
+            validate = validate,
+        )
+        self._coupling_map = coupling_map
+
+    def _process(self, data: np.ndarray):
+        if self._analyzed_quantity == "Mutual Information":
+            qa = QuantumAwesomeness(self._coupling_map)
+            mutual_infos = qa.mean_mutual_info(data,self._pairs)
+            y_data = []
+            y_data_unc = []
+            for mi in mutual_infos['paired']:
+                y_data.append(mi)
+                y_data_unc.append(0)
+            return unp.uarray(y_data, y_data_unc)
+        else:
+            return super()._process(data)
+
+class QuantumAwesomeness():
+    def __init__(
+            self,
+            coupling_map
+    ):
+        self._coupling_map= coupling_map
+
+    def mutual_info(self, data: np.ndarray):
+
+        mutual_infos = []
+        for circ_data in data:
+            if 'counts' not in circ_data:
+                counts = circ_data
+            else:
+                counts = circ_data['counts']
+            shots = sum(counts.values())
+            p = {}
+            for j,k in self._coupling_map:
+                p[j,k] = {'00':0, '01':0, '10':0, '11':0}
+                for string in counts:
+                    ss = string[-1-j] + string[-1-k]
+                    p[j,k][ss] += counts[string]
+                for ss in p[j,k]:
+                    p[j,k][ss] /= shots
+
+            mi = {}
+            for j,k in self._coupling_map:
+                if j<k:
+                    ps_l = [p[j, k][b+'0']+p[j, k][b+'1'] for b in ['0', '1']]
+                    ps_r = [p[j, k]['0'+b]+p[j, k]['1'+b] for b in ['0', '1']]
+                    mi[j, k] = - entropy(list(p[j,k].values()), base=2)
+                    for ps in [ps_l, ps_r]:
+                        mi[j,k] += entropy(ps, base=2)
+            mutual_infos.append(mi)
+        
+        return mutual_infos
+            
+    def mean_mutual_info(self, data: np.ndarray, pairs):
+        mutual_infos = self.mutual_info(data)
+        mean_mi = {'paired':[], 'single':[]}
+        for c, mi in enumerate(mutual_infos):
+            mean_mi['paired'].append([])
+            mean_mi['single'].append([])
+            for pair, value in mi.items():
+                if tuple(pair) in pairs[c] or tuple(pair[::-1]) in pairs[c]:
+                    mean_mi['paired'][-1].append(value)
+                else:
+                    mean_mi['single'][-1].append(value)
+            for ps in mean_mi:
+                if mean_mi[ps][-1]:
+                    mean_mi[ps][-1] = np.mean(mean_mi[ps][-1])
+                else:
+                    mean_mi[ps][-1] = np.nan
+        return mean_mi
