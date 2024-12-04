@@ -431,6 +431,9 @@ class MirrorRB(StandardRB):
                 ),
                 "target": compute_target_bitstring(circ_target),
                 "inverting_pauli_layer": self.experiment_options.inverting_pauli_layer,
+                "pairs": self._pairs[i],
+                "singles": self._singles[i],
+                "coupling_map": self.backend.coupling_map,
             }
 
             if self.experiment_options.inverting_pauli_layer:

@@ -128,7 +128,6 @@ class MirrorQA(MirrorRB):
             pauli_randomize=pauli_randomize,
             sampling_algorithm=sampling_algorithm,
             two_qubit_gate_density=two_qubit_gate_density,
-            two_qubit_gate=CXGate(),
             num_samples=num_samples,
             sampler_opts=sampler_opts,
             seed=seed,
@@ -217,12 +216,11 @@ class _ComputeQAQuantities(_ComputeQuantities):
         super().__init__(
             num_qubits = num_qubits,
             target_bs = target_bs,
-            pairs = pairs,
-            singles = singles,
             analyzed_quantity = analyzed_quantity,
             validate = validate,
         )
         self._coupling_map = coupling_map
+        self._pairs = pairs
 
     def _process(self, data: np.ndarray):
         if self._analyzed_quantity == "Mutual Information":
