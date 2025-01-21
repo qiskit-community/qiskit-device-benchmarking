@@ -38,7 +38,7 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
         Calculate the success (fraction of target measured) and polarization
         Optionally calcuate an effective HOP
     """
-    
+
     def _initialize(self, experiment_data: ExperimentData):
         """Initialize curve analysis by setting up the data processor for Mirror
         RB data.
@@ -60,7 +60,7 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
                 raise AnalysisError("QuantumVolume circuits do not all have the same depth.")
 
         num_qubits = self.depth
-        
+
         self.set_options(
             data_processor=DataProcessor(
                 input_key="counts",
@@ -100,14 +100,14 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
                 "Effective Polarization",
             ],
         )
-        
+
         return options
 
-   
+
     def _run_analysis(
             self,
             experiment_data: ExperimentData,
-        ): 
+        ):
 
         results = []
         artifacts = []
@@ -142,7 +142,7 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
             figures = None
         else:
             figures = None
-        
+
         results.append(success_prob_result)
-        
+
         return results+artifacts, figures

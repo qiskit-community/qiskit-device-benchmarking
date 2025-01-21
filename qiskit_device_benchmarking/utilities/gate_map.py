@@ -518,7 +518,7 @@ def plot_gate_map(
         [14, 14],
         [14, 15],
     ]
-    
+
     backend_version = _get_backend_interface_version(backend)
     if backend_version <= 1:
         if backend.configuration().simulator:
@@ -543,7 +543,7 @@ def plot_gate_map(
 
     if qubit_coordinates is None:
         raise QiskitError("No matching coordinate found, code has only 127, 133, 156 backends")
-        
+
     return plot_coupling_map(
         num_qubits,
         qubit_coordinates,
@@ -684,7 +684,7 @@ def plot_coupling_map(
     def node_label(node):
         return str(qubit_labels[node])
 
-    
+
     plot = mpl_draw(
         graph,
         pos = qubit_coordinates,

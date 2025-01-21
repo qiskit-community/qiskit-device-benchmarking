@@ -5,7 +5,7 @@
 - More in-depth benchmarking code that was discussed in papers and has not been integrated into Qiskit Experiments.
 - Fast circuit validation tests.
 
-The repository is not intended to define a benchmark standard. This code base is not guaranteed to be stable and may have breaking changes. 
+The repository is not intended to define a benchmark standard. This code base is not guaranteed to be stable and may have breaking changes.
 
 # Structure
 
@@ -44,4 +44,4 @@ Please open a github issue or pull request if you would like to contribute.
 
 # Acknowledgements
 
-Portions of the code in this repository was developed via sponsorship by the Army Research Office ``QCISS Program'' under Grant Number W911NF-21-1-0002. 
+Portions of the code in this repository was developed via sponsorship by the Army Research Office ``QCISS Program'' under Grant Number W911NF-21-1-0002.
