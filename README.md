@@ -1,11 +1,11 @@
 # Qiskit Device Benchmarking
 
-*Qiskit Device Benchmarking* is a respository for code to run various device level benchmarks through Qiskit. The repository endevours to accomplish several goals, including, but not limited to:
+*Qiskit Device Benchmarking* is a repository for code to run various device level benchmarks through Qiskit. The repository endeavors to accomplish several goals, including, but not limited to:
 - Code examples for users to replicate reported benchmarking metrics through the Qiskit backend. These will likely be notebooks to run code in the [Qiskit Experiments](https://github.com/Qiskit-Extensions/qiskit-experiments) repo, but some of the code may reside here.
 - More in-depth benchmarking code that was discussed in papers and has not been integrated into Qiskit Experiments.
 - Fast circuit validation tests.
 
-The repository is not intended to define a benchmark standard. This code base is not guaranteed to be stable and may have breaking changes. 
+The repository is not intended to define a benchmark standard. This code base is not guaranteed to be stable and may have breaking changes.
 
 # Structure
 
@@ -42,6 +42,6 @@ Please open a github issue or pull request if you would like to contribute.
 
 [Apache License 2.0](LICENSE.txt)
 
-# Acknowledgements
+# Acknowledgments
 
-Portions of the code in this repository was developed via sponsorship by the Army Research Office ``QCISS Program'' under Grant Number W911NF-21-1-0002. 
+Portions of the code in this repository was developed via sponsorship by the Army Research Office ``QCISS Program'' under Grant Number W911NF-21-1-0002.

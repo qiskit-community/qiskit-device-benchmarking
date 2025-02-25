@@ -18,12 +18,12 @@ import datetime
 def import_yaml(fstr):
     with open(fstr, 'r') as stream:
         data_imp = yaml.safe_load(stream)
-        
+
     return data_imp
 
 def timestamp_name():
     return datetime.datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
-    
+
 def export_yaml(fstr, exp_data):
     with open(fstr, 'w') as fout:
         yaml.dump(exp_data, fout, default_flow_style=None)
