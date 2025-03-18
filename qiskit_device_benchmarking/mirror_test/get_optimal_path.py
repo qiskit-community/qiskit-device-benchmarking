@@ -11,7 +11,7 @@
 import numpy as np
 import pandas as pd
 from qiskit import QuantumCircuit
-from qiskit.providers.exceptions import BackendPropertyError
+from qiskit_ibm_runtime.models.exceptions import BackendPropertyError
 from qiskit.transpiler import AnalysisPass, CouplingMap, PassManager
 from qiskit.transpiler.passes import VF2Layout
 from qiskit.transpiler.passes.layout.vf2_utils import ErrorMap
