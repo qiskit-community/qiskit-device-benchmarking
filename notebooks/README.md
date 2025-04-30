@@ -17,5 +17,7 @@ This folder contains example notebooks for running benchmarks.
 - [MCM RB](mcm_rb.ipynb): Example notebook for running Mid-circuit measurement RB experiment.
 
 - [Dynamic circuits RB](dynamic_circuits_rb.ipynb): Example notebook for running dynamic circuits RB experiment.
+  
+- - [Quantum Volume](quantum_volume.ipynb): Example notebook for running dynamic Quantum Volume circuits.
 
 - [Layer Fidelity Placement](layer_fidelity_placement.ipynb): Example notebook of using layer fidelity to build an updated error map of the device that is more reflective of layered circuits. Also gives an example of a heuristic algorithm for finding the best N-qubit chain based on the error map.
