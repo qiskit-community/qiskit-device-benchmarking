@@ -10,7 +10,7 @@ This folder contains example notebooks for running benchmarks.
 
 - [Device RB](device_rb.ipynb): Example notebook for running full device 2Q RB and Purity RB.
 
-- [Coherence and Proxy Bell](bell_tphi.ipynb): Runs T1/T2 across the device and looks at hellinger fidelities of Bell states produced with repeated two-qubit gates.
+- [System Characterization](system_char.ipynb): Notebook to do general (non-RB) characterization of a system. Runs Coherence (T1/T2), measurement fidelity, hellinger fidelities of Bell states produced with repeated two-qubit gates and ZZ.
 
 - [Extract Benchmarks](extract_benchmarks.ipynb): Example notebook for extracting and plotting benchmarks and properties from a list of devices. This information includes LF, EPLG, 2Q errors, 1Q errors, T1s, T2s, and readout errors, but can be easily modified to include any other properties.
 
