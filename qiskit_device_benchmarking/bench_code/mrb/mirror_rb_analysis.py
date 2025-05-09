@@ -281,7 +281,7 @@ class _ComputeQuantities(DataAction):
                         success_prob = count / sum(circ_result.values())
                         success_prob_unc = np.sqrt(success_prob * (1 - success_prob))
                         break
-                else:  
+                else:
                     # Compute hamming distance proportions
                     target_bs_to_list = [int(char) for char in target_bs]
                     actual_bs_to_list = [int(char) for char in bitstring]

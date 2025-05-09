@@ -12,7 +12,7 @@ opt_level: 1
 trials: 10
 shots: 200
 ```
-Generates an output yaml (timestamped) with the results. There are two types of circuits for the benchmarking. 
+Generates an output yaml (timestamped) with the results. There are two types of circuits for the benchmarking.
 Mirror QV circuits which are all-to-all and HE (hardware-efficient) Mirror QV circuits which are layers of random SU(4) assuming nearest neighbor on a chain.
 
 The output can be turned into plots with `bench_analyze.py`, e.g. `python bench_analyze.py -f MQV_2024-04-27_06_19_32.yaml -v max --plot` will product a plot of all the maximum results over the sets from the listed file. Plots are generated as pdf.
@@ -24,4 +24,4 @@ backends: [ibm_fez]
 channel: 'ibm_quantum' or 'imb_cloud'
 ```
 
-Circuits are based on the code written for https://arxiv.org/abs/2303.02108 which was based on the earlier work by Proctor et al [Phys. Rev. Lett. 129, 150502 (2022)](https://doi.org/10.48550/arXiv.2112.09853). 
+Circuits are based on the code written for https://arxiv.org/abs/2303.02108 which was based on the earlier work by Proctor et al [Phys. Rev. Lett. 129, 150502 (2022)](https://doi.org/10.48550/arXiv.2112.09853).

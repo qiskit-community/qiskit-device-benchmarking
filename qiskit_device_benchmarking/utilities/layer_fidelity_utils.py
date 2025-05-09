@@ -13,7 +13,7 @@
 Utilities for layer fidelity
 """
 
-import numpy as np 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from pandas import DataFrame
@@ -43,7 +43,7 @@ def run_lf_chain(
     - nseeds
     - cliff_lengths
     - nshots
-    
+
     Returns:
     - List of ExperimentData objects
     """
@@ -120,7 +120,7 @@ def run_lf_chain(
 def get_rb_data(exp_data: ExperimentData)-> pd.DataFrame:
     """ Extract raw and fitted RB data from a layer fidelity experiment.
     Data is exracted for all pairs of qubits in the chain.
-    
+
     Args:
         exp_data: ExperimentData object
 
@@ -146,18 +146,18 @@ def get_rb_data(exp_data: ExperimentData)-> pd.DataFrame:
     return rb_data_df
 
 def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: list[int], backend: IBMBackend) -> pd.DataFrame:
-    """ Extracts the lf and eplg values from a layer fidelity experiment for all 
+    """ Extracts the lf and eplg values from a layer fidelity experiment for all
     subchain lengths ranging from l=4 to l= length of qchain. Saves the data in a
     DataFrame that contains the current legnth, the subchain with the highest lf value,
     and lf and eplg arrays for that given length.
-    
+
     Args:
     - best_qubit_chains: List of chains to run
     - backend
     - nseeds
     - cliff_lengths
     - nshots
-    
+
     Returns:
     - results_per_chain: pd.DataFrame
     """
@@ -185,7 +185,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: list[int], backe
         pfs = [pfdf.loc[pfdf[pfdf.qubits == qubits].index[0], 'value'] for qubits in full_layer]
         pfs = list(map(lambda x: x.n if x != 0 else 0, pfs))
         pfs[0] = pfs[0] ** 2
-        pfs[-1] = pfs[-1] ** 2        
+        pfs[-1] = pfs[-1] ** 2
         pfs[0] = pfs[0] ** 2
         pfs[-1] = pfs[-1] ** 2
 
@@ -229,7 +229,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: list[int], backe
     # Save data
     results_per_chain = pd.DataFrame.from_dict(results_per_chain)
     return results_per_chain
-    
+
 
 def make_lf_eplg_plots(
     backend: IBMBackend,
@@ -239,7 +239,7 @@ def make_lf_eplg_plots(
 ):
     """ Make layer fidelity and eplg plots for a given chain. Values
     are extracted from the provided experiment object.
-    
+
     Args:
     - exp_data: ExperimentData object
     - chain: list of qubits in chain
@@ -274,7 +274,7 @@ def make_lf_eplg_plots(
         pfs = [pfdf.loc[pfdf[pfdf.qubits == qubits].index[0], 'value'] for qubits in full_layer]
         pfs = list(map(lambda x: x.n if x != 0 else 0, pfs))
         pfs[0] = pfs[0] ** 2
-        pfs[-1] = pfs[-1] ** 2        
+        pfs[-1] = pfs[-1] ** 2
         pfs[0] = pfs[0] ** 2
         pfs[-1] = pfs[-1] ** 2
 
@@ -336,7 +336,7 @@ def get_lf_chain(
     chain_length: int=100
 ):
     """ Get the chain reported from the backend for length chain_length
-    
+
     Args:
     - backend: ibm backend
     - chain_length: the chain length to return
@@ -348,19 +348,19 @@ def get_lf_chain(
     for i in backend.properties().general_qlists:
         if i['name']=='lf_%d'%chain_length:
             return i['qubits']
-        
+
     return None
 
 def get_grids(
         backend: IBMBackend,
 ):
     """ Return the grid chains for the different backends
-    
+
     Args:
     - backend: ibm backend
 
     Return:
-    - list of list of chains: list of list of chains for the grids to run. Each 
+    - list of list of chains: list of list of chains for the grids to run. Each
     sub list is a list of chains that can be run in one experiment, each list in that sublist
     is a continuous path
     """
@@ -409,7 +409,7 @@ def get_grids(
         raise ValueError('No grids defined for qubit number %d'%backend.nqubits)
 
     grid_chains = [horz_chain, vert_chain]
-    
+
     return grid_chains
 
 def df_to_error_dict(
@@ -418,7 +418,7 @@ def df_to_error_dict(
 ):
     """ Take in the dataframe from the layer fidelity experiment
     and convert it to a dictionary of gate errors
-    
+
     Args:
     - lf_df: Dataframe from layer fidelity experiment
     - gate_list: List of gates in the layer fidelity experiment
@@ -435,9 +435,9 @@ def df_to_error_dict(
         gate_pf = pfdf[pfdf.qubits == tuple(gate)].iloc[0].value.nominal_value
 
         err_rb_dict['%d_%d'%(gate[0],gate[1])] = 4/5*(1-gate_pf)
-    
+
     return err_rb_dict
-    
+
 
 def make_error_dict(
         backend: IBMBackend,
@@ -445,7 +445,7 @@ def make_error_dict(
         keep_perm: bool=False
 ):
     """ Convert a backend into a dictionary of errors for each edge
-    
+
     Args:
     - backend: ibm backend
     - two_q_gate: the two qubit gate type
@@ -465,9 +465,9 @@ def make_error_dict(
         if not keep_perm:
             if '%d_%d'%(i[1],i[0]) in err_dict:
                 continue
-        
+
         err_dict['%d_%d'%(i[0],i[1])] = props.gate_error(two_q_gate, i)
-    
+
 
     return err_dict
 
@@ -476,18 +476,18 @@ def update_error_dict(
         new_error_dicts: dict,
         update_perm: bool=True,
 ):
-    """ Update errors in error_dict with the errors from the 
+    """ Update errors in error_dict with the errors from the
     new_error_dict
-    
+
     Args:
     - error_dict: original error dictionary (assume complete)
-    - new_error_dicts: list of new error dictionaries 
+    - new_error_dicts: list of new error dictionaries
     - update_perm: treat Q0_Q1 the same as Q1_Q0
-    
+
     Return:
     - updated error dictionary
     """
-    
+
     for gate in error_dict:
         updated_errs = []
         for i in new_error_dicts:
@@ -498,9 +498,9 @@ def update_error_dict(
                 rgate = '%s_%s'%(gate.split('_')[1],gate.split('_')[0])
                 if rgate in i:
                     updated_errs.append(i[rgate])
-    
-    
+
+
         if len(updated_errs)>0:
             error_dict[gate] = float(np.mean(updated_errs))
-    
+
     return error_dict

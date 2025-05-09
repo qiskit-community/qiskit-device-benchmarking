@@ -115,7 +115,7 @@ class PurityRB(StandardRB):
         circuits = self._sequences_to_circuits(sequences)
         # Add metadata for each circuit
         # trial links all from the same trial
-        # needed for post processing the purity RB 
+        # needed for post processing the purity RB
         for circ_i, circ in enumerate(circuits):
             circ.metadata = {
                 "xval": len(sequences[int(circ_i/3**self.num_qubits)]),
@@ -149,9 +149,9 @@ class PurityRB(StandardRB):
                     qc.sdg(j)
                     qc.sx(j)
                     qc.s(j)
-                    
+
             post_rot.append(self._to_instruction(Clifford(qc), synthesis_opts))
-        
+
         # Circuit generation
         circuits = []
         for i, seq in enumerate(sequences):
@@ -179,5 +179,5 @@ class PurityRB(StandardRB):
                 circ2.append(post_rot[j], circ.qubits)
                 circ2.measure_all()  # includes insertion of the barrier before measurement
                 circuits.append(circ2)
-                
+
         return circuits

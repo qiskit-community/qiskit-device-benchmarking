@@ -12,7 +12,7 @@ from typing import Optional, List
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-from qiskit_ibm_runtime import (EstimatorV2 as Estimator, EstimatorOptions, IBMBackend, 
+from qiskit_ibm_runtime import (EstimatorV2 as Estimator, EstimatorOptions, IBMBackend,
                                 RuntimeJobV2 as RuntimeJob)
 from qiskit_ibm_runtime.utils.noise_learner_result import LayerError
 from qiskit.primitives import PrimitiveResult
@@ -147,5 +147,5 @@ def analyze_mirror_result(result: PrimitiveResult,
         plt.xlim((xpts[0],xpts[-1]))
         plt.ylabel("Fraction of observables")
         plt.grid()
-    
+
     return median_error, mean_error, fraction
