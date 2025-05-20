@@ -277,11 +277,15 @@ def create_hardware_aware_circuit(
         # add 2 qubit gate layer, layer_type indicates even, odd or cross row connections.
         append_2q_layer(qc, coupling_map, basis_gates, rng)
 
+        # add barrier to form "twirling box" to inform primitve where layers are for twirled gates
+        qc.barrier(qubits)
+
         # add single qubit gate layer with optional parameters
         param_list += append_1q_layer(
             qc, qubits=qubits, parameterized=parameterized, parameter_prefix="L" + str(d)
         )
 
+    qc.barrier(qubits)
     transpiled_circ = transpile(
         qc, backend, translation_method="translator", layout_method="trivial"
     )
