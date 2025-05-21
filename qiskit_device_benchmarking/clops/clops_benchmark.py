@@ -373,7 +373,7 @@ class clops_benchmark:
         layers: int = 100,
         shots: int = 100,
         rep_delay: float = None,
-        num_circuits: int = 1000,
+        num_circuits: int = 5000,
         circuit_type: str = "twirled",
         batch_size: int = None,
         pipelines: int = 1,
