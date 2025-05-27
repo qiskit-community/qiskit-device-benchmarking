@@ -24,7 +24,6 @@ from rustworkx.visualization import mpl_draw
 
 from qiskit.exceptions import QiskitError
 from qiskit.utils import optionals as _optionals
-from qiskit.providers.exceptions import BackendPropertyError
 from qiskit.transpiler.coupling import CouplingMap
 from qiskit.visualization.exceptions import VisualizationError
 

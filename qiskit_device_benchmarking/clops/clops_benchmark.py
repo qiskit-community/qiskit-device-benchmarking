@@ -277,11 +277,15 @@ def create_hardware_aware_circuit(
         # add 2 qubit gate layer, layer_type indicates even, odd or cross row connections.
         append_2q_layer(qc, coupling_map, basis_gates, rng)
 
+        # add barrier to form "twirling box" to inform primitve where layers are for twirled gates
+        qc.barrier(qubits)
+
         # add single qubit gate layer with optional parameters
         param_list += append_1q_layer(
             qc, qubits=qubits, parameterized=parameterized, parameter_prefix="L" + str(d)
         )
 
+    qc.barrier(qubits)
     transpiled_circ = transpile(
         qc, backend, translation_method="translator", layout_method="trivial"
     )
@@ -369,7 +373,7 @@ class clops_benchmark:
         layers: int = 100,
         shots: int = 100,
         rep_delay: float = None,
-        num_circuits: int = 1000,
+        num_circuits: int = 5000,
         circuit_type: str = "twirled",
         batch_size: int = None,
         pipelines: int = 1,
