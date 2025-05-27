@@ -241,3 +241,95 @@ def sets_min_dist(dist_dict, set1, set2, min_sep):
                 return False
             
     return True
+
+def create_graph_dict(
+    coupling_map: list,
+    nq: int
+) -> dict:
+
+    graph_dict = {i: [] for i in range(nq)}
+
+    for edge in coupling_map:
+        if edge[1] not in graph_dict[edge[0]]:
+            graph_dict[edge[0]].append(edge[1])
+
+        if edge[0] not in graph_dict[edge[1]]:
+            graph_dict[edge[1]].append(edge[0])
+
+
+    return graph_dict
+
+def iter_neighbors(
+        graph_dict: dict,
+        cur_node: int,
+        err_map: dict,
+        best_fid: list,
+        fid_cutoff: float,
+        cur_list: list,
+        chain_fid: float,
+        pathlen: int
+) -> list:
+
+    """
+    takes a list of paths through a graph and adds to
+    it all the neighbor qubits of the last point as long
+    as the graph does fold on itself. This version is different than the above
+    in that it tracks a best fidelity and will skip paths
+    that don't seem viable
+
+    if the lists get long enough return the lists
+
+    Args:
+        graph_dict: dictionary of nodes and their neighbors
+        cur_node: current node on the graph
+        err_map: map of edge errors (AVERAGE gate error)
+        best_fid: list of length 1 (so mutable) of the best fidelity
+        fid_cutoff: the percentage (0->1) of the best fidelity at that chain length
+        to cutoff the search
+        cur_list: current path through graph
+        chain_fid: fidelit of the current path
+        pathlen: length of the path we are trying to find
+
+    Returns:
+        new_list: a list of all the paths appended to cur_list
+    """
+
+    new_list = []
+    for i in graph_dict[cur_node]:
+        #no backtracking
+        if (len(cur_list) > 1 and i in cur_list):
+            continue
+
+        if '%d_%d'%(cur_node,i) in err_map:
+            edge_err = err_map['%d_%d'%(cur_node,i)]
+        else:
+            edge_err = err_map['%d_%d'%(i,cur_node)]
+
+        #if the edge does not seem viable skip
+        new_fid = chain_fid*(1-5/4*edge_err)
+        if new_fid < (fid_cutoff*best_fid[0])**((len(cur_list)+1)/pathlen):
+            continue
+        #add the current node to the list
+        cur_list_tmp = cur_list.copy()
+        cur_list_tmp.append(i)
+
+        #check if the list is long enough
+        if len(cur_list_tmp) < pathlen:
+            #if not then continue to add to it
+            tmp_new_list = iter_neighbors(graph_dict,
+                                           i,
+                                           err_map,
+                                           best_fid,
+                                           fid_cutoff,
+                                           cur_list_tmp,
+                                           new_fid,
+                                           pathlen)
+            for tmp_node in tmp_new_list:
+                if len(tmp_node)!=0:
+                    new_list.append(tmp_node)
+        else:
+            #append the path to the list
+            if new_fid > best_fid[0]:
+                best_fid[0]=new_fid
+            new_list.append(cur_list_tmp)
+    return new_list

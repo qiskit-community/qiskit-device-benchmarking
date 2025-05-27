@@ -288,6 +288,8 @@ def trotter_circuit(
     if qubits is None:
         qubits = range(1 + max(coupling_qubits(*layer_couplings)))
 
+    coup_q_list = coupling_qubits(*layer_couplings)
+
     # Generate the entangling layers
     layers = [
         entangling_layer(gate_2q, couplings, qubits=qubits)
@@ -297,14 +299,14 @@ def trotter_circuit(
     # Construct the circuit for a single Trotter step
     num_qubits = len(qubits)
     trotter_step = QuantumCircuit(num_qubits)
-    trotter_step.rx(theta, range(num_qubits))
+    trotter_step.rx(theta, coup_q_list)
     for layer in layers:
         trotter_step.compose(layer, range(num_qubits), inplace=True)
 
     # Construct the circuit for the specified number of Trotter steps
     circuit = QuantumCircuit(num_qubits)
     for _ in range(num_steps):
-        circuit.rx(theta, range(num_qubits))
+        circuit.rx(theta, coup_q_list)
         for layer in layers:
             circuit.compose(layer, range(num_qubits), inplace=True)
 

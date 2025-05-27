@@ -16,7 +16,7 @@ Utilities for layer fidelity
 import numpy as np 
 import matplotlib.pyplot as plt
 import pandas as pd
-from typing import Dict, List, Tuple
+from pandas import DataFrame
 import datetime
 
 from qiskit_ibm_runtime.ibm_backend import IBMBackend
@@ -26,11 +26,11 @@ from qiskit.transpiler import CouplingMap
 import qiskit_device_benchmarking.utilities.graph_utils as gu
 
 def run_lf_chain(
-    chain: List[int],
+    chain: list[int],
     backend: IBMBackend,
     nseeds: int=6,
     seed: int=42,
-    cliff_lengths: List[int]=[1, 10, 20, 30, 40, 60, 80, 100, 150, 200, 400],
+    cliff_lengths: list[int]=[1, 10, 20, 30, 40, 60, 80, 100, 150, 200, 400],
     nshots: int=200
 ) -> ExperimentData:
 
@@ -59,6 +59,9 @@ def run_lf_chain(
     # Get one qubit basis gates
     oneq_gates = []
     for i in backend.configuration().basis_gates:
+        #put in a case to handle rx and rzz
+        if i.casefold()=='rx' or i.casefold()=='rzz':
+            continue
         if i.casefold()!=twoq_gate.casefold():
                 oneq_gates.append(i)
 
@@ -142,7 +145,7 @@ def get_rb_data(exp_data: ExperimentData)-> pd.DataFrame:
             rb_data_df = pd.concat([rb_data_df, data_df], ignore_index=True)
     return rb_data_df
 
-def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backend: IBMBackend) -> pd.DataFrame:  
+def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: list[int], backend: IBMBackend) -> pd.DataFrame:
     """ Extracts the lf and eplg values from a layer fidelity experiment for all 
     subchain lengths ranging from l=4 to l= length of qchain. Saves the data in a
     DataFrame that contains the current legnth, the subchain with the highest lf value,
@@ -231,7 +234,7 @@ def reconstruct_lf_per_length(exp_data: ExperimentData, qchain: List[int], backe
 def make_lf_eplg_plots(
     backend: IBMBackend,
     exp_data: ExperimentData,
-    chain: List[int],
+    chain: list[int],
     machine: str
 ):
     """ Make layer fidelity and eplg plots for a given chain. Values
@@ -347,3 +350,157 @@ def get_lf_chain(
             return i['qubits']
         
     return None
+
+def get_grids(
+        backend: IBMBackend,
+):
+    """ Return the grid chains for the different backends
+    
+    Args:
+    - backend: ibm backend
+
+    Return:
+    - list of list of chains: list of list of chains for the grids to run. Each 
+    sub list is a list of chains that can be run in one experiment, each list in that sublist
+    is a continuous path
+    """
+
+    grid_chains = []
+
+    if backend.num_qubits==127:
+        horz_chain = [[13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 14, 18, 19, 20, 21, 22, 23, 24,
+                      25, 26, 27, 28, 29, 30, 31, 32, 36, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41,
+                      40, 39, 38, 37, 52, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+                      74, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 90, 94, 95, 96,
+                      97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 112, 126, 125, 124, 123,
+                      122, 121, 120, 119, 118, 117, 116, 115, 114, 113]]
+        vert_chain = [[113, 114, 109, 96, 95, 94, 90, 75, 76, 77, 71, 58, 57, 56, 52, 37, 38, 39, 33,
+                      20, 19, 18, 14, 0, 1, 2, 3, 4, 15, 22, 23, 24, 34, 43, 42, 41, 53, 60, 61, 62,
+                      72, 81, 80, 79, 91, 98, 99, 100, 110, 118, 119, 120, 121, 122, 111, 104, 103, 102, 92,
+                      83, 84, 85, 73, 66, 65, 64, 54, 45, 46, 47, 35, 28, 27, 26, 16, 8, 9, 10, 11, 12, 17,
+                      30, 31, 32, 36, 51, 50, 49, 55, 68, 69, 70, 74, 89, 88, 87, 93, 106, 107, 108, 112, 126]]
+    elif backend.num_qubits==133:
+        horz_chain = [[14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 15, 19, 20, 21, 22, 23, 24, 25, 26,
+                      27, 28, 29, 30, 31, 32, 33, 37, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39,
+                      38, 53, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 75, 90, 89, 88, 87,
+                      86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 91, 95, 96, 97, 98, 99, 100, 101, 102, 103,
+                      104, 105, 106, 107, 108, 109, 113, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 118,
+                      117, 116, 115, 114, 129]]
+        vert_chain = [[129, 114, 115, 116, 110, 97, 96, 95, 91, 76, 77, 78, 72, 59, 58, 57, 53, 38, 39, 40, 34,
+                      21, 20, 19, 15, 0, 1, 2, 3, 4, 16, 23, 24, 25, 35, 44, 43, 42, 54, 61, 62, 63, 73, 82, 81,
+                      80, 92, 99, 100, 101, 111, 120, 119, 118, 130], [131, 122, 123, 124, 112, 105, 104, 103, 93,
+                      84, 85, 86, 74, 67, 66, 65, 55, 46, 47, 48, 36, 29, 28, 27, 17, 8, 9, 10, 11, 12, 18, 31,
+                      32, 33, 37, 52, 51, 50, 56, 69, 70, 71, 75, 90, 89, 88, 94, 107, 108, 109, 113, 128, 127,
+                      126, 132]]
+    elif backend.num_qubits==156:
+        horz_chain = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19, 35, 34, 33, 32, 31, 30, 29, 28,
+                      27, 26, 25, 24, 23, 22, 21, 20], [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
+                      55, 59, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60], [80, 81, 82, 83, 84,
+                      85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 99, 115, 114, 113, 112, 111, 110, 109, 108, 107,
+                      106, 105, 104, 103, 102, 101, 100], [120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131,
+                      132, 133, 134, 135, 139, 155, 154, 153, 152, 151, 150, 149, 148, 147, 146, 145, 144, 143, 142, 141, 140]]
+        vert_chain = [[0, 1, 2, 3, 16, 23, 22, 21, 36, 41, 42, 43, 56, 63, 62, 61, 76, 81, 82, 83, 96, 103, 102, 101,
+                      116, 121, 122, 123, 136, 143, 142, 141, 140], [5, 6, 7, 17, 27, 26, 25, 37, 45, 46, 47, 57, 67,
+                      66, 65, 77, 85, 86, 87, 97, 107, 106, 105, 117, 125, 126, 127, 137, 147, 146, 145], [9, 10, 11,
+                      18, 31, 30, 29, 38, 49, 50, 51, 58, 71, 70, 69, 78, 89, 90, 91, 98, 111, 110, 109, 118, 129,
+                      130, 131, 138, 151, 150, 149], [13, 14, 15, 19, 35, 34, 33, 39, 53, 54, 55, 59, 75, 74, 73, 79,
+                      93, 94, 95, 99, 115, 114, 113, 119, 133, 134, 135, 139, 155, 154, 153]]
+    else:
+        raise ValueError('No grids defined for qubit number %d'%backend.nqubits)
+
+    grid_chains = [horz_chain, vert_chain]
+    
+    return grid_chains
+
+def df_to_error_dict(
+        lf_df: DataFrame,
+        gate_list: list
+):
+    """ Take in the dataframe from the layer fidelity experiment
+    and convert it to a dictionary of gate errors
+    
+    Args:
+    - lf_df: Dataframe from layer fidelity experiment
+    - gate_list: List of gates in the layer fidelity experiment
+
+    Return:
+    - error dictionary
+    """
+
+    pfdf = lf_df[lf_df.name == "ProcessFidelity"]
+    err_rb_dict = {}
+
+    for gate in gate_list:
+
+        gate_pf = pfdf[pfdf.qubits == tuple(gate)].iloc[0].value.nominal_value
+
+        err_rb_dict['%d_%d'%(gate[0],gate[1])] = 4/5*(1-gate_pf)
+    
+    return err_rb_dict
+    
+
+def make_error_dict(
+        backend: IBMBackend,
+        two_q_gate: str,
+        keep_perm: bool=False
+):
+    """ Convert a backend into a dictionary of errors for each edge
+    
+    Args:
+    - backend: ibm backend
+    - two_q_gate: the two qubit gate type
+    - keep_perm: include the errors if both directions of the gate
+    appear in the coupling map
+
+    Return:
+    - error dictionary
+    """
+
+    err_dict = {}
+    props = backend.properties()
+    coup_map = backend.coupling_map
+
+    for i in coup_map:
+
+        if not keep_perm:
+            if '%d_%d'%(i[1],i[0]) in err_dict:
+                continue
+        
+        err_dict['%d_%d'%(i[0],i[1])] = props.gate_error(two_q_gate, i)
+    
+
+    return err_dict
+
+def update_error_dict(
+        error_dict: dict,
+        new_error_dicts: dict,
+        update_perm: bool=True,
+):
+    """ Update errors in error_dict with the errors from the 
+    new_error_dict
+    
+    Args:
+    - error_dict: original error dictionary (assume complete)
+    - new_error_dicts: list of new error dictionaries 
+    - update_perm: treat Q0_Q1 the same as Q1_Q0
+    
+    Return:
+    - updated error dictionary
+    """
+    
+    for gate in error_dict:
+        updated_errs = []
+        for i in new_error_dicts:
+            if gate in i:
+                updated_errs.append(i[gate])
+
+            if update_perm:
+                rgate = '%s_%s'%(gate.split('_')[1],gate.split('_')[0])
+                if rgate in i:
+                    updated_errs.append(i[rgate])
+    
+    
+        if len(updated_errs)>0:
+            error_dict[gate] = float(np.mean(updated_errs))
+    
+    return error_dict
