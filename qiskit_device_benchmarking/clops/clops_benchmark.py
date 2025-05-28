@@ -28,39 +28,39 @@ from qiskit_ibm_runtime.execution_span import ExecutionSpan, ExecutionSpans
 CLOPS benchmark
 
 This benchmark measures Circuit Layer Operations Per Seconds (CLOPS) of
-parameterized utility scale  hardware efficient circuits.  CLOPS measures 
-the steady state throughput of a large quantity of  these parameterized 
-circuits that are  of width 100 qubits with 100 layers of gates. 
+parameterized utility scale  hardware efficient circuits.  CLOPS measures
+the steady state throughput of a large quantity of  these parameterized
+circuits that are  of width 100 qubits with 100 layers of gates.
 Each layer consists of two qubit gates across as many qubits
 as possible that can be done in parallel, followed by a single qubit
-gate(s) on every qubit to allow any arbitrary rotation, with those 
-rotations being parameterized.  Parameters are applied to the circuit 
-to generate a large number of  instantiated circuits to be executed on 
-the quantum computer. It is up to the vendor on how to optimally execute 
-these circuits for maximal throughput.  As such, the benchmark code 
-provides several ways to measure CLOPS depending on the capability of 
-the quantum computer. 
+gate(s) on every qubit to allow any arbitrary rotation, with those
+rotations being parameterized.  Parameters are applied to the circuit
+to generate a large number of  instantiated circuits to be executed on
+the quantum computer. It is up to the vendor on how to optimally execute
+these circuits for maximal throughput.  As such, the benchmark code
+provides several ways to measure CLOPS depending on the capability of
+the quantum computer.
 
 The "twirling" method uses the native parameterization of the Sampler
-primitive to parameterize the circuit, and optimal batching of the 
+primitive to parameterize the circuit, and optimal batching of the
 circuits is assumed to be done by the Sampler, freeing the user
 from having to optimize the batch size. The only requirement is
 that the total number of circuits executed needs to be chosen to
 get the system into a steady state to measure CLOPS.
 The "parameterized" method is similar, but instead sends an already
-parameterized circuit to the Sampler primitive, along with enough 
-parameters to execute the specified number of circuits. Batching 
+parameterized circuit to the Sampler primitive, along with enough
+parameters to execute the specified number of circuits. Batching
 again is handled by the Sampler. This method requires larger bandwidth
 to send in all of the necessary parameters.
 
-The "instantiated" method is for systems that cannot natively 
+The "instantiated" method is for systems that cannot natively
 handle parameterized circuits. In this case the circuit parameters
 are bound locally and then sent to the quantum computer for execution.
 This method requires the user to specify the desired size of each
-batch of circuits (so that they can be sent together the quantum computer) 
+batch of circuits (so that they can be sent together the quantum computer)
 as well as the number of local parallel pipelines to bind parameters and
 create payloads in parallel. The user will need to tune both of these
-parameters to try and optimize performance of the system. This will 
+parameters to try and optimize performance of the system. This will
 tend to be much slower than on systems that natively support parameterized
 circuits
 
@@ -110,7 +110,7 @@ def _append_1q_layer_u(
     pars2 = ParameterVector(f"{param_prefix}_2", size)
 
     for i, q in enumerate(qubits):
-        if parameterized: 
+        if parameterized:
             circuit._append(UGate(pars0[i], pars1[i], pars2[i]), [q], [])
         else:
             circuit._append(UGate(1.0, -3.14/2, 3.14/2), [q], [])
@@ -128,7 +128,7 @@ def _append_1q_layer_rzsx(
     pars2 = ParameterVector(f"{param_prefix}_2", size)
 
     for i, q in enumerate(qubits):
-        if parameterized: 
+        if parameterized:
             circuit._append(RZGate(pars0[i]), [q], [])
             circuit._append(SXGate(), [q], [])
             circuit._append(RZGate(pars1[i]), [q], [])
@@ -315,10 +315,10 @@ def create_payload(backend, qc, rng, max_experiments):
 
 
 def run_twirled(
-    backend: Backend, 
+    backend: Backend,
     width: int,
     layers: int,
-    shots: int, 
+    shots: int,
     rep_delay: float,
     num_circuits: int,
     execution_path: str,
@@ -338,10 +338,10 @@ def run_twirled(
 
 
 def run_parameterized(
-    backend: Backend, 
+    backend: Backend,
     width: int,
     layers: int,
-    shots: int, 
+    shots: int,
     rep_delay: float,
     num_circuits: int,
     execution_path: str,
@@ -349,10 +349,10 @@ def run_parameterized(
     (transpiled_circ, parameters) = create_hardware_aware_circuit(width=width, layers=layers, backend=backend, parameterized=True)
     seed = 234987
     rng = np.random.default_rng(seed)
-    
-    param_values = [[rng.uniform(0, np.pi * 2) for idx in range(sum([len(param) for param in parameters]))] 
+
+    param_values = [[rng.uniform(0, np.pi * 2) for idx in range(sum([len(param) for param in parameters]))]
                      for idx in range(num_circuits)]
-    
+
     experimental_opts = {"execution": {"fast_parametric_update": True}}
     options = SamplerOptions(experimental=experimental_opts)
     if execution_path:
@@ -361,7 +361,7 @@ def run_parameterized(
     with Session(backend=backend) as session:
         sampler=Sampler(mode=session, options=options)
         job = sampler.run([(transpiled_circ, param_values , shots)])
-    
+
     return job
 
 class clops_benchmark:
@@ -379,7 +379,7 @@ class clops_benchmark:
         pipelines: int = 1,
         execution_path: Optional[str] = None,
     ):
-        
+
         """Run CLOPS benchmark through Sampler primitive
 
         Args:
@@ -392,14 +392,14 @@ class clops_benchmark:
             rep_delay: Optional, delay between circuits, default is set to system value
             num_circuits: Optional, number of circuits (parameter updates) run for the benchmark
                           default is 1000.  Adjust as necessary to get sufficient iterations.
-                          For non-twirled benchmarking may need to be significantly reduced to 
+                          For non-twirled benchmarking may need to be significantly reduced to
                           meet API input size limits
             circuit_type: Optional, determines how parameters are handled:
-                        "twirled": default value, sends in a single unparameterized circuit and configures 
+                        "twirled": default value, sends in a single unparameterized circuit and configures
                                    Sampler to run `num_circuits` twirls (parameterized) of the circuit
                         "parameterized": sends in a single parameterized circuit with `num_circuits` parameter sets
                         "instantiated": binds parameters locally and sends batches of instantiated circuits to be run
-            batch_size: Optional, indicates how many circuits should be sent in per job to the backend. Only used 
+            batch_size: Optional, indicates how many circuits should be sent in per job to the backend. Only used
                         for `instantiated` circuit_type. Default is None
             pipelines: Optional, number of parallel processes used to instantiate parameters and submit jobs to
                     the backend. Only used for `instantiated` circuit_type.  Default is 1
@@ -415,7 +415,7 @@ class clops_benchmark:
         self.job_attributes = {"backend_name": backend_name, "width": width, "layers": layers, "shots": shots,
                                "rep_delay": rep_delay, "num_circuits": num_circuits, "circuit_type": circuit_type,
                                "batch_size": batch_size, "pipelines": pipelines}
-        
+
         if circuit_type == "twirled":
             self.job = run_twirled(backend, width, layers, shots, rep_delay, num_circuits, execution_path)
             self.clops = self._clops_throughput_sampler
@@ -426,18 +426,18 @@ class clops_benchmark:
             raise ValueError("'circuit_type' instantiated not yet supported")
         else:
             raise ValueError("'circuit_type' " + circuit_type + " invalid")
-        
-        
+
+
     def _clops_throughput_sampler(self):
         """ Measures the overall CLOPS throughput based off of intermediate
-        job metadata returned from the sampler. This metadata indicates the 
+        job metadata returned from the sampler. This metadata indicates the
         start and end time for each sub-job executed on the qpu.  For larger
-        jobs (large number of twirls or large number of circuits/parameters) 
+        jobs (large number of twirls or large number of circuits/parameters)
         jobs are split into chunks that efficiently run on the qpu. To calculate
-        the steady state throughput we use the time from the end of the first 
+        the steady state throughput we use the time from the end of the first
         sub-job to the end of the last sub-job, skipping the startup costs
-        for the first job to get the pipeline full. The goal is to predict 
-        the expected performance for large scale error mitigated workloads 
+        for the first job to get the pipeline full. The goal is to predict
+        the expected performance for large scale error mitigated workloads
         without having to run huge number of circuits"""
 
         result = self.job.result()
@@ -452,7 +452,7 @@ class clops_benchmark:
         end_time_last_sub_job = spans.stop
         end_time_first_sub_job = spans[0].stop
 
-        clops = round(((sum_size - spans[0].size) * self.job_attributes["layers"]) / 
+        clops = round(((sum_size - spans[0].size) * self.job_attributes["layers"]) /
                       (end_time_last_sub_job - end_time_first_sub_job
         ).total_seconds())
 

@@ -21,12 +21,12 @@ from qiskit_experiments.curve_analysis import ScatterTable
 import qiskit_experiments.curve_analysis as curve
 from qiskit_experiments.framework import AnalysisResultData
 from qiskit_experiments.library.randomized_benchmarking import RBAnalysis
-from qiskit_experiments.library.randomized_benchmarking.rb_analysis import (_calculate_epg, 
+from qiskit_experiments.library.randomized_benchmarking.rb_analysis import (_calculate_epg,
                                                                             _exclude_1q_error)
 
 
 class PurityRBAnalysis(RBAnalysis):
-    r"""A class to analyze purity randomized benchmarking experiments. 
+    r"""A class to analyze purity randomized benchmarking experiments.
 
     # section: overview
         This analysis takes only single series.
@@ -74,7 +74,7 @@ class PurityRBAnalysis(RBAnalysis):
     ) -> ScatterTable:
         """Perform data processing from the experiment result payload.
 
-        For purity this converts the counts into Trace(rho^2) and then runs the 
+        For purity this converts the counts into Trace(rho^2) and then runs the
         rest of the standard RB fitters
 
         For now this does it by spoofing a new counts dictionary and then
@@ -119,8 +119,8 @@ class PurityRBAnalysis(RBAnalysis):
                     purity += sampled_expectation_value(trial_raw[ii]['counts'],'IZ')**2/2**nq/3**(nq-1)
                     purity += sampled_expectation_value(trial_raw[ii]['counts'],'ZI')**2/2**nq/3**(nq-1)
 
-            raw_data2[-1]['counts'] = {'0'*nq: int(purity*nshots*10),'1'*nq: int((1-purity)*nshots*10)} 
-                        
+            raw_data2[-1]['counts'] = {'0'*nq: int(purity*nshots*10),'1'*nq: int((1-purity)*nshots*10)}
+
         return super()._run_data_processing(raw_data2,category)
 
 
@@ -143,7 +143,7 @@ class PurityRBAnalysis(RBAnalysis):
         num_qubits = len(self._physical_qubits)
 
         # Calculate EPC
-        # For purity we need to correct by 
+        # For purity we need to correct by
         alpha = fit_data.ufloat_params["alpha"]**0.5
         scale = (2**num_qubits - 1) / (2**num_qubits)
         epc = scale * (1 - alpha)
@@ -197,7 +197,7 @@ class PurityRBAnalysis(RBAnalysis):
                     )
 
         return outcomes
-    
+
     def _generate_fit_guesses(
         self,
         user_opt: curve.FitOptions,
@@ -223,14 +223,14 @@ class PurityRBAnalysis(RBAnalysis):
             alpha_guess = curve.guess.rb_decay(curve_data.x[0:3], curve_data.y[0:3], b=b_guess)
         else:
             alpha_guess = curve.guess.rb_decay(curve_data.x, curve_data.y, b=b_guess)
-            
+
         alpha_guess = alpha_guess**2
-        
+
         if alpha_guess < 0.6:
             a_guess = (curve_data.y[0] - b_guess)
         else:
             a_guess = (curve_data.y[0] - b_guess) / (alpha_guess ** curve_data.x[0])
-            
+
         user_opt.p0.set_if_empty(
             b=b_guess,
             a=a_guess,

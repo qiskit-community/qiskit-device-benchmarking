@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from typing import Dict, List, Tuple
 import datetime
-import os 
+import os
 
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit_ibm_runtime.ibm_backend import IBMBackend
@@ -42,8 +42,8 @@ def run_fast_lf(backends: List[str],
     nshots: int,
     act_name: str,
     hgp: str):
-    
-    # Make a general experiment folder 
+
+    # Make a general experiment folder
     parent_path = os.path.join(os.getcwd(), 'layer_fidelity')
     try:
         print(f'Creating folder {parent_path}')
@@ -52,12 +52,12 @@ def run_fast_lf(backends: List[str],
         pass
     print(f'Changing directory to {parent_path}')
     os.chdir(parent_path)
-    
+
     # Load the service
     print('Loading service')
     service = QiskitRuntimeService(name=act_name)
-    
-    for backend_name in backends:    
+
+    for backend_name in backends:
         # Make an experiment folder each backend
         time = datetime.datetime.now().strftime('%Y-%m-%d-%H.%M.%S')
         directory = f"{time}_{backend_name}_layer_fidelity"
@@ -66,7 +66,7 @@ def run_fast_lf(backends: List[str],
         os.mkdir(path)
         print(f'Changing directory to {path}')
         os.chdir(path)
-        
+
         # Get the real backend
         print(f'Getting backend {backend_name}')
         backend = service.backend(backend_name, instance=hgp)
@@ -112,12 +112,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Run fast layer fidelity '
                                      + 'on reported qikist chain. Specify a config '
                                      +' yaml and override settings on the command line')
-    parser.add_argument('-c', '--config', help='config file name', 
+    parser.add_argument('-c', '--config', help='config file name',
                         default='config.yaml')
     parser.add_argument('-b', '--backend', help='Specify backend and override '
                         + 'backend_group')
-    parser.add_argument('-bg', '--backend_group', 
-                        help='specify backend group in config file', 
+    parser.add_argument('-bg', '--backend_group',
+                        help='specify backend group in config file',
                         default='backends')
     parser.add_argument('--hgp', help='specify hgp / qiskit instance')
     parser.add_argument('--name', help='Account name', default='')
@@ -130,34 +130,34 @@ if __name__ == '__main__':
         default=[1, 10, 20, 30, 40, 60, 80, 100, 150, 200, 400],
     )
     args = parser.parse_args()
-    
+
     #import from config
     config_dict = fu.import_yaml(args.config)
     print('Config File Found')
     print(config_dict)
-    
+
     #override from the command line
     if args.backend is not None:
         backends = [args.backend]
     else:
-        backends = config_dict[args.backend_group]  
+        backends = config_dict[args.backend_group]
     if args.hgp is not None:
         hgp = args.hgp
     else:
-        hgp = config_dict['hgp']   
-    # set default values unless otherwise instructed on config_dict 
+        hgp = config_dict['hgp']
+    # set default values unless otherwise instructed on config_dict
     if 'nseeds' in config_dict.keys():
         nseeds = config_dict['nseeds']
     else:
-        nseeds = args.nseeds   
+        nseeds = args.nseeds
     if 'seed' in config_dict.keys():
         seed = config_dict['seed']
     else:
-        seed = args.seed   
+        seed = args.seed
     if 'cliff_lengths' in config_dict.keys():
         cliff_lengths = config_dict['cliff_lengths']
     else:
-        cliff_lengths = args.cliff_lengths   
+        cliff_lengths = args.cliff_lengths
     if 'nshots' in config_dict.keys():
         nshots = config_dict['nshots']
     else:
@@ -166,7 +166,7 @@ if __name__ == '__main__':
         act_name = config_dict['act_name']
     else:
         act_name = args.name
-    
+
     # Run fast layer fidelity on the list of backends
     print('Running fast layer fidelity on backend(s)')
     run_fast_lf(backends, nseeds, seed, cliff_lengths, nshots, act_name, hgp)
