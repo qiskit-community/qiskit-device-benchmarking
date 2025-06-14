@@ -24,5 +24,7 @@ def compute_target_bitstring(circuit: QuantumCircuit) -> str:
         Target bitstring.
     """
     # target string has a 1 for each True in the stabilizer half of the phase vector
-    target = "".join(["1" if phase else "0" for phase in Clifford(circuit).stab_phase[::-1]])
+    target = "".join(
+        ["1" if phase else "0" for phase in Clifford(circuit).stab_phase[::-1]]
+    )
     return target

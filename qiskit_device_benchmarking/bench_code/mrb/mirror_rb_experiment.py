@@ -12,6 +12,7 @@
 """
 Mirror RB Experiment class.
 """
+
 import warnings
 from typing import Union, Iterable, Optional, List, Sequence, Tuple
 from numbers import Integral
@@ -27,7 +28,15 @@ from qiskit.providers.backend import Backend
 from qiskit.providers.options import Options
 from qiskit.exceptions import QiskitError
 from qiskit.transpiler import CouplingMap, PassManager, InstructionDurations
-from qiskit.circuit.library import CXGate, CYGate, CZGate, ECRGate, SwapGate, XGate, RZGate
+from qiskit.circuit.library import (
+    CXGate,
+    CYGate,
+    CZGate,
+    ECRGate,
+    SwapGate,
+    XGate,
+    RZGate,
+)
 from qiskit.transpiler.passes import (
     ALAPScheduleAnalysis,
     PadDynamicalDecoupling,
@@ -171,7 +180,9 @@ class MirrorRB(StandardRB):
             inverting_pauli_layer=inverting_pauli_layer,
         )
 
-        self._distribution = self.sampler_map.get(sampling_algorithm)(seed=seed, **sampler_opts)
+        self._distribution = self.sampler_map.get(sampling_algorithm)(
+            seed=seed, **sampler_opts
+        )
         self.analysis = MirrorRBAnalysis()
 
     @classmethod
@@ -255,7 +266,9 @@ class MirrorRB(StandardRB):
             adjusted_2q_density = 1
 
         self._distribution.gate_distribution = [
-            GateDistribution(prob=adjusted_2q_density, op=self.experiment_options.two_qubit_gate),
+            GateDistribution(
+                prob=adjusted_2q_density, op=self.experiment_options.two_qubit_gate
+            ),
             GateDistribution(prob=1 - adjusted_2q_density, op=GenericClifford(1)),
         ]
 
@@ -290,11 +303,15 @@ class MirrorRB(StandardRB):
 
         if self.experiment_options.pauli_randomize:
             pauli_sampler = SingleQubitSampler(seed=self.experiment_options.seed)
-            pauli_sampler.gate_distribution = [GateDistribution(prob=1, op=GenericPauli(1))]
+            pauli_sampler.gate_distribution = [
+                GateDistribution(prob=1, op=GenericPauli(1))
+            ]
 
         if self.experiment_options.start_end_clifford:
             clifford_sampler = SingleQubitSampler(seed=self.experiment_options.seed)
-            clifford_sampler.gate_distribution = [GateDistribution(prob=1, op=GenericClifford(1))]
+            clifford_sampler.gate_distribution = [
+                GateDistribution(prob=1, op=GenericClifford(1))
+            ]
 
         sequences = []
 
@@ -321,15 +338,21 @@ class MirrorRB(StandardRB):
 
                 # Interleave random Paulis if set by user
                 if self.experiment_options.pauli_randomize:
-                    pauli_layers = list(pauli_sampler(range(self.num_qubits), length=seqlen + 1))
+                    pauli_layers = list(
+                        pauli_sampler(range(self.num_qubits), length=seqlen + 1)
+                    )
                     seq = list(itertools.chain(*zip(pauli_layers[:-1], seq)))
                     seq.append(pauli_layers[-1])
                     if not self.experiment_options.full_sampling:
-                        build_seq_lengths = [length * 2 + 1 for length in build_seq_lengths]
+                        build_seq_lengths = [
+                            length * 2 + 1 for length in build_seq_lengths
+                        ]
 
                 # Add start and end cliffords if set by user
                 if self.experiment_options.start_end_clifford:
-                    clifford_layers = list(clifford_sampler(range(self.num_qubits), length=1))
+                    clifford_layers = list(
+                        clifford_sampler(range(self.num_qubits), length=1)
+                    )
                     seq.insert(0, clifford_layers[0])
                     seq.append(self._inverse_layer(clifford_layers[0]))
                     if not self.experiment_options.full_sampling:
@@ -372,7 +395,9 @@ class MirrorRB(StandardRB):
 
             circ.metadata = {
                 "xval": int(
-                    self.experiment_options.lengths[i % len(self.experiment_options.lengths)]
+                    self.experiment_options.lengths[
+                        i % len(self.experiment_options.lengths)
+                    ]
                 ),
                 "target": compute_target_bitstring(circ_target),
                 "inverting_pauli_layer": self.experiment_options.inverting_pauli_layer,

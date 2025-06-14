@@ -13,5 +13,4 @@ Classes
     McmRBAnalysis
 """
 
-
 from .mcm_rb_experiment import McmRB, McmRBAnalysis, SubDecayFit

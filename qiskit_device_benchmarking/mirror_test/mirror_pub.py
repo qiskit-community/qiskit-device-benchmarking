@@ -160,20 +160,22 @@ class MirrorPubOptions:
         return [pub] * self.num_pubs
 
     def get_path(self, backend):
-
         if self.path_strategy is None:
             if self.path:
                 return self.path
             else:
                 coupling_map = tuple(tuple(edge) for edge in backend.coupling_map)
-                return get_longest_path(coupling_map)[:self.num_qubits]
+                return get_longest_path(coupling_map)[: self.num_qubits]
 
         elif self.path_strategy == "eplg_chain":
             if self.num_qubits > 100:
                 raise ValueError("ELPG chain only defined up to 100 qubits")
-            eplg_chain = next(q_list["qubits"] for q_list in backend.properties().general_qlists
-                              if q_list["name"] == "lf_100")
-            return eplg_chain[:self.num_qubits]
+            eplg_chain = next(
+                q_list["qubits"]
+                for q_list in backend.properties().general_qlists
+                if q_list["name"] == "lf_100"
+            )
+            return eplg_chain[: self.num_qubits]
 
         elif self.path_strategy == "vf2_optimal":
             weights_dict = {
