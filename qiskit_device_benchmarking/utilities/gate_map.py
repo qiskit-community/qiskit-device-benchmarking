@@ -356,7 +356,7 @@ def plot_gate_map(
         [13, 0],
         [13, 4],
         [13, 8],
-        [13, 12]
+        [13, 12],
     ]
 
     qubit_coordinates_map[156] = [
@@ -517,7 +517,7 @@ def plot_gate_map(
         [14, 14],
         [14, 15],
     ]
-    
+
     backend_version = _get_backend_interface_version(backend)
     if backend_version <= 1:
         if backend.configuration().simulator:
@@ -541,8 +541,10 @@ def plot_gate_map(
             )
 
     if qubit_coordinates is None:
-        raise QiskitError("No matching coordinate found, code has only 127, 133, 156 backends")
-        
+        raise QiskitError(
+            "No matching coordinate found, code has only 127, 133, 156 backends"
+        )
+
     return plot_coupling_map(
         num_qubits,
         qubit_coordinates,
@@ -667,7 +669,9 @@ def plot_coupling_map(
     px = 1.15 / plt.rcParams["figure.dpi"]
 
     if qubit_coordinates:
-        qubit_coordinates = {i: qubit_coordinates[i][::-1] for i in range(len(qubit_coordinates))}
+        qubit_coordinates = {
+            i: qubit_coordinates[i][::-1] for i in range(len(qubit_coordinates))
+        }
 
     if font_size is None:
         max_characters = max(1, max(len(str(x)) for x in qubit_labels))
@@ -683,16 +687,14 @@ def plot_coupling_map(
     def node_label(node):
         return str(qubit_labels[node])
 
-    
     plot = mpl_draw(
         graph,
-        pos = qubit_coordinates,
-        labels = node_label,
-        font_size = font_size,
-        font_color = font_color,
-        with_labels = label_qubits,
-        node_color = qubit_color,
-        edge_color = line_color,
-        ax=ax
+        pos=qubit_coordinates,
+        labels=node_label,
+        font_size=font_size,
+        font_color=font_color,
+        with_labels=label_qubits,
+        node_color=qubit_color,
+        edge_color=line_color,
+        ax=ax,
     )
-

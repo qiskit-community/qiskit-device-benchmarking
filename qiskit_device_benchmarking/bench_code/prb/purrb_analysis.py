@@ -21,12 +21,14 @@ from qiskit_experiments.curve_analysis import ScatterTable
 import qiskit_experiments.curve_analysis as curve
 from qiskit_experiments.framework import AnalysisResultData
 from qiskit_experiments.library.randomized_benchmarking import RBAnalysis
-from qiskit_experiments.library.randomized_benchmarking.rb_analysis import (_calculate_epg, 
-                                                                            _exclude_1q_error)
+from qiskit_experiments.library.randomized_benchmarking.rb_analysis import (
+    _calculate_epg,
+    _exclude_1q_error,
+)
 
 
 class PurityRBAnalysis(RBAnalysis):
-    r"""A class to analyze purity randomized benchmarking experiments. 
+    r"""A class to analyze purity randomized benchmarking experiments.
 
     # section: overview
         This analysis takes only single series.
@@ -66,7 +68,6 @@ class PurityRBAnalysis(RBAnalysis):
     def __init__(self):
         super().__init__()
 
-
     def _run_data_processing(
         self,
         raw_data: List[Dict],
@@ -74,7 +75,7 @@ class PurityRBAnalysis(RBAnalysis):
     ) -> ScatterTable:
         """Perform data processing from the experiment result payload.
 
-        For purity this converts the counts into Trace(rho^2) and then runs the 
+        For purity this converts the counts into Trace(rho^2) and then runs the
         rest of the standard RB fitters
 
         For now this does it by spoofing a new counts dictionary and then
@@ -92,37 +93,53 @@ class PurityRBAnalysis(RBAnalysis):
             ValueError: When data processor is not provided.
         """
 
-        #figure out the number of qubits... has to be 1 or 2 for now
-        if self.options.outcome=='0':
-            nq=1
-        elif self.options.outcome=='00':
-            nq=2
+        # figure out the number of qubits... has to be 1 or 2 for now
+        if self.options.outcome == "0":
+            nq = 1
+        elif self.options.outcome == "00":
+            nq = 2
         else:
             raise ValueError("Only supporting 1 or 2Q purity")
 
-        ntrials = int(len(raw_data)/3**nq)
+        ntrials = int(len(raw_data) / 3**nq)
         raw_data2 = []
-        nshots = int(sum(raw_data[0]['counts'].values()))
+        nshots = int(sum(raw_data[0]["counts"].values()))
 
         for i in range(ntrials):
-            trial_raw = [d for d in raw_data if d["metadata"]["trial"]==i]
+            trial_raw = [d for d in raw_data if d["metadata"]["trial"] == i]
 
             raw_data2.append(trial_raw[0])
 
-            purity = 1/2**nq
-            if nq==1:
+            purity = 1 / 2**nq
+            if nq == 1:
                 for ii in range(3):
-                    purity += sampled_expectation_value(trial_raw[ii]['counts'],'Z')**2/2**nq
+                    purity += (
+                        sampled_expectation_value(trial_raw[ii]["counts"], "Z") ** 2
+                        / 2**nq
+                    )
             else:
                 for ii in range(9):
-                    purity += sampled_expectation_value(trial_raw[ii]['counts'],'ZZ')**2/2**nq
-                    purity += sampled_expectation_value(trial_raw[ii]['counts'],'IZ')**2/2**nq/3**(nq-1)
-                    purity += sampled_expectation_value(trial_raw[ii]['counts'],'ZI')**2/2**nq/3**(nq-1)
+                    purity += (
+                        sampled_expectation_value(trial_raw[ii]["counts"], "ZZ") ** 2
+                        / 2**nq
+                    )
+                    purity += (
+                        sampled_expectation_value(trial_raw[ii]["counts"], "IZ") ** 2
+                        / 2**nq
+                        / 3 ** (nq - 1)
+                    )
+                    purity += (
+                        sampled_expectation_value(trial_raw[ii]["counts"], "ZI") ** 2
+                        / 2**nq
+                        / 3 ** (nq - 1)
+                    )
 
-            raw_data2[-1]['counts'] = {'0'*nq: int(purity*nshots*10),'1'*nq: int((1-purity)*nshots*10)} 
-                        
-        return super()._run_data_processing(raw_data2,category)
+            raw_data2[-1]["counts"] = {
+                "0" * nq: int(purity * nshots * 10),
+                "1" * nq: int((1 - purity) * nshots * 10),
+            }
 
+        return super()._run_data_processing(raw_data2, category)
 
     def _create_analysis_results(
         self,
@@ -139,12 +156,14 @@ class PurityRBAnalysis(RBAnalysis):
         Returns:
             List of analysis result data.
         """
-        outcomes = curve.CurveAnalysis._create_analysis_results(self, fit_data, quality, **metadata)
+        outcomes = curve.CurveAnalysis._create_analysis_results(
+            self, fit_data, quality, **metadata
+        )
         num_qubits = len(self._physical_qubits)
 
         # Calculate EPC
-        # For purity we need to correct by 
-        alpha = fit_data.ufloat_params["alpha"]**0.5
+        # For purity we need to correct by
+        alpha = fit_data.ufloat_params["alpha"] ** 0.5
         scale = (2**num_qubits - 1) / (2**num_qubits)
         epc = scale * (1 - alpha)
 
@@ -197,7 +216,7 @@ class PurityRBAnalysis(RBAnalysis):
                     )
 
         return outcomes
-    
+
     def _generate_fit_guesses(
         self,
         user_opt: curve.FitOptions,
@@ -219,18 +238,20 @@ class PurityRBAnalysis(RBAnalysis):
         )
 
         b_guess = 1 / 2 ** len(self._physical_qubits)
-        if len(curve_data.x)>3:
-            alpha_guess = curve.guess.rb_decay(curve_data.x[0:3], curve_data.y[0:3], b=b_guess)
+        if len(curve_data.x) > 3:
+            alpha_guess = curve.guess.rb_decay(
+                curve_data.x[0:3], curve_data.y[0:3], b=b_guess
+            )
         else:
             alpha_guess = curve.guess.rb_decay(curve_data.x, curve_data.y, b=b_guess)
-            
+
         alpha_guess = alpha_guess**2
-        
+
         if alpha_guess < 0.6:
-            a_guess = (curve_data.y[0] - b_guess)
+            a_guess = curve_data.y[0] - b_guess
         else:
             a_guess = (curve_data.y[0] - b_guess) / (alpha_guess ** curve_data.x[0])
-            
+
         user_opt.p0.set_if_empty(
             b=b_guess,
             a=a_guess,

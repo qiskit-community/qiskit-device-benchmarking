@@ -29,6 +29,7 @@ SequenceElementType = Union[Clifford, Integral, QuantumCircuit]
 
 from .purrb_analysis import PurityRBAnalysis
 
+
 class PurityRB(StandardRB):
     """An experiment to characterize the error rate of a gate set on a device.
     using purity RB
@@ -91,16 +92,17 @@ class PurityRB(StandardRB):
             QiskitError: If any invalid argument is supplied.
         """
         # Initialize base experiment (RB)
-        super().__init__(physical_qubits, lengths, backend, num_samples, seed, full_sampling)
+        super().__init__(
+            physical_qubits, lengths, backend, num_samples, seed, full_sampling
+        )
 
-        #override the analysis
+        # override the analysis
         self.analysis = PurityRBAnalysis()
         self.analysis.set_options(outcome="0" * self.num_qubits)
         self.analysis.plotter.set_figure_options(
-                    xlabel="Clifford Length",
-                    ylabel="Purity",
-                )
-
+            xlabel="Clifford Length",
+            ylabel="Purity",
+        )
 
     def circuits(self) -> List[QuantumCircuit]:
         """Return a list of RB circuits.
@@ -115,15 +117,14 @@ class PurityRB(StandardRB):
         circuits = self._sequences_to_circuits(sequences)
         # Add metadata for each circuit
         # trial links all from the same trial
-        # needed for post processing the purity RB 
+        # needed for post processing the purity RB
         for circ_i, circ in enumerate(circuits):
             circ.metadata = {
-                "xval": len(sequences[int(circ_i/3**self.num_qubits)]),
-                "trial": int(circ_i/3**self.num_qubits),
+                "xval": len(sequences[int(circ_i / 3**self.num_qubits)]),
+                "trial": int(circ_i / 3**self.num_qubits),
                 "group": "Clifford",
             }
         return circuits
-
 
     def _sequences_to_circuits(
         self, sequences: List[Sequence[SequenceElementType]]
@@ -136,22 +137,22 @@ class PurityRB(StandardRB):
         """
         synthesis_opts = self._get_synthesis_options()
 
-        #post rotations as cliffords
+        # post rotations as cliffords
         post_rot = []
         for i in range(3**self.num_qubits):
             ##find clifford
             qc = QuantumCircuit(self.num_qubits)
             for j in range(self.num_qubits):
-                qg_ind = np.mod(int(i/3**j),3)
-                if qg_ind==1:
+                qg_ind = np.mod(int(i / 3**j), 3)
+                if qg_ind == 1:
                     qc.sx(j)
-                elif qg_ind==2:
+                elif qg_ind == 2:
                     qc.sdg(j)
                     qc.sx(j)
                     qc.s(j)
-                    
+
             post_rot.append(self._to_instruction(Clifford(qc), synthesis_opts))
-        
+
         # Circuit generation
         circuits = []
         for i, seq in enumerate(sequences):
@@ -167,17 +168,19 @@ class PurityRB(StandardRB):
                 circ._append(CircuitInstruction(Barrier(self.num_qubits), circ.qubits))
 
             # Compute inverse, compute only the difference from the previous shorter sequence
-            prev_elem = self._StandardRB__compose_clifford_seq(prev_elem, seq[len(prev_seq) :])
+            prev_elem = self._StandardRB__compose_clifford_seq(
+                prev_elem, seq[len(prev_seq) :]
+            )
             prev_seq = seq
             inv = self._StandardRB__adjoint_clifford(prev_elem)
 
             circ.append(self._to_instruction(inv, synthesis_opts), circ.qubits)
 
-            #copy the circuit and apply post rotations
+            # copy the circuit and apply post rotations
             for j in range(3**self.num_qubits):
                 circ2 = circ.copy()
                 circ2.append(post_rot[j], circ.qubits)
                 circ2.measure_all()  # includes insertion of the barrier before measurement
                 circuits.append(circ2)
-                
+
         return circuits

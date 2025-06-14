@@ -19,7 +19,10 @@ with open("requirements.txt", encoding="utf-8") as f:
     REQUIREMENTS = f.read().splitlines()
 
 version_path = os.path.abspath(
-    os.path.join(os.path.join(os.path.dirname(__file__), "qiskit_device_benchmarking"), "VERSION.txt")
+    os.path.join(
+        os.path.join(os.path.dirname(__file__), "qiskit_device_benchmarking"),
+        "VERSION.txt",
+    )
 )
 with open(version_path, "r", encoding="utf-8") as fd:
     version = fd.read().rstrip()
@@ -64,5 +67,5 @@ setup(
         "Bug Tracker": "https://github.com/Qiskit-Community/qiskit-device-benchmarking/issues",
         "Source Code": "https://github.com/Qiskit-Community/qiskit-device-benchmarking",
     },
-    zip_safe=False
+    zip_safe=False,
 )

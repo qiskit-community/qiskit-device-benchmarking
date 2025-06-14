@@ -294,7 +294,6 @@ class McmRB(BaseExperiment):
                     if n_elms <= (length * self._cliff_per_meas) and (
                         np.mod(n_elms, self._cliff_per_meas) == 0
                     ):
-
                         qregs_mapped = [
                             qregs[self.physical_qubits.index(mlq._index)]
                             for mlq in meas_layer.qubits
@@ -576,7 +575,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
         default_markers = MarkerStyle(".").filled_markers
 
         for i in range(len(clif_qubit_sets)):
-
             slot_idx = clif_start_ind[i]
             for qubit in clif_qubit_sets[i]:
                 if 1:
@@ -684,7 +682,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
             qubits.add(qind)
 
         for qind in qubits:
-
             qset_ind = -1
             for i in range(len(self._q_sets)):
                 if qind in self._q_sets[i]:
@@ -711,7 +708,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
                 )
 
         for qind in qubits:
-
             qset_ind = -1
             for i in range(len(self._q_sets)):
                 if qind in self._q_sets[i]:
@@ -749,16 +745,13 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
         self,
         curve_data: ScatterTable,
     ) -> List["matplotlib.figure.Figure"]:
-
         fig_list = []
 
         self.plotter.clear_supplementary_data()
 
         for i in range(len(self._q_sets)):
-
             self.plotter.clear_series_data()
             for analysis in self.analyses():
-
                 if int(analysis.name.split("_")[2]) != i:
                     continue
 

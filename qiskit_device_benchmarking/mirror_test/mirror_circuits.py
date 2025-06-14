@@ -382,7 +382,9 @@ def mirror_trotter_pub_1d(
     theta = Parameter("A")
     delta = Parameter("C")
     circuit = mirror_trotter_circuit_1d(theta, delta, num_steps, path, backend=backend)
-    pm = generate_pm(optimization_level=1, target=backend.target, layout_method="trivial")
+    pm = generate_pm(
+        optimization_level=1, target=backend.target, layout_method="trivial"
+    )
     circuit = pm.run(circuit)
     obs = magnetization_observables(path, circuit.num_qubits)
     pub = (circuit, obs, param_vals)
