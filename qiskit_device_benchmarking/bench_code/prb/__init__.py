@@ -27,3 +27,7 @@ Classes
 from .pur_rb import PurityRB
 from .purrb_analysis import PurityRBAnalysis
 
+__all__ = [
+    PurityRB,
+    PurityRBAnalysis,
+]

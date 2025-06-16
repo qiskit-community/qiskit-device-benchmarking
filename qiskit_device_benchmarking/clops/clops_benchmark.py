@@ -68,8 +68,6 @@ For further information see the clops_benchmark class
 """
 
 
-
-
 """
 Functions for working with circuits of parameterized 1-qubit gates.
 """
@@ -97,7 +95,9 @@ def append_1q_layer(
     """
     if qubits is None:
         qubits = circuit.qubits
-    return _layer_basis_function(basis)(circuit, qubits, parameterized, parameter_prefix)
+    return _layer_basis_function(basis)(
+        circuit, qubits, parameterized, parameter_prefix
+    )
 
 
 def _append_1q_layer_u(
@@ -110,10 +110,10 @@ def _append_1q_layer_u(
     pars2 = ParameterVector(f"{param_prefix}_2", size)
 
     for i, q in enumerate(qubits):
-        if parameterized: 
+        if parameterized:
             circuit._append(UGate(pars0[i], pars1[i], pars2[i]), [q], [])
         else:
-            circuit._append(UGate(1.0, -3.14/2, 3.14/2), [q], [])
+            circuit._append(UGate(1.0, -3.14 / 2, 3.14 / 2), [q], [])
 
     return pars0, pars1, pars2
 
@@ -128,7 +128,7 @@ def _append_1q_layer_rzsx(
     pars2 = ParameterVector(f"{param_prefix}_2", size)
 
     for i, q in enumerate(qubits):
-        if parameterized: 
+        if parameterized:
             circuit._append(RZGate(pars0[i]), [q], [])
             circuit._append(SXGate(), [q], [])
             circuit._append(RZGate(pars1[i]), [q], [])
@@ -228,9 +228,9 @@ def append_2q_layer(qc, coupling_map, basis_gates, rng):
             if (edge[0] in ce) or (edge[1] in ce):
                 edges_to_delete.append(ce)
         available_edges.difference_update(set(edges_to_delete))
-        if 'ecr' in basis_gates:
+        if "ecr" in basis_gates:
             qc.ecr(*edge)
-        elif 'cz' in basis_gates:
+        elif "cz" in basis_gates:
             qc.cz(*edge)
         else:
             qc.cx(*edge)
@@ -282,7 +282,10 @@ def create_hardware_aware_circuit(
 
         # add single qubit gate layer with optional parameters
         param_list += append_1q_layer(
-            qc, qubits=qubits, parameterized=parameterized, parameter_prefix="L" + str(d)
+            qc,
+            qubits=qubits,
+            parameterized=parameterized,
+            parameter_prefix="L" + str(d),
         )
 
     qc.barrier(qubits)
@@ -313,60 +316,73 @@ def create_payload(backend, qc, rng, max_experiments):
     return job, max_experiments
 
 
-
 def run_twirled(
-    backend: Backend, 
+    backend: Backend,
     width: int,
     layers: int,
-    shots: int, 
+    shots: int,
     rep_delay: float,
     num_circuits: int,
     execution_path: str,
 ):
-    (transpiled_circ , _) = create_hardware_aware_circuit(width=width, layers=layers, backend=backend, parameterized=False)
-    twirling_opts = TwirlingOptions(num_randomizations=num_circuits, shots_per_randomization=shots, enable_gates=True)
+    (transpiled_circ, _) = create_hardware_aware_circuit(
+        width=width, layers=layers, backend=backend, parameterized=False
+    )
+    twirling_opts = TwirlingOptions(
+        num_randomizations=num_circuits,
+        shots_per_randomization=shots,
+        enable_gates=True,
+    )
     experimental_opts = {"execution": {"fast_parametric_update": True}}
     options = SamplerOptions(twirling=twirling_opts, experimental=experimental_opts)
     if execution_path:
         options.experimental["execution_path"] = execution_path
 
     with Session(backend=backend) as session:
-        sampler=Sampler(mode=session, options=options)
-        job = sampler.run([transpiled_circ], shots=shots*num_circuits)
+        sampler = Sampler(mode=session, options=options)
+        job = sampler.run([transpiled_circ], shots=shots * num_circuits)
 
     return job
 
 
 def run_parameterized(
-    backend: Backend, 
+    backend: Backend,
     width: int,
     layers: int,
-    shots: int, 
+    shots: int,
     rep_delay: float,
     num_circuits: int,
     execution_path: str,
 ):
-    (transpiled_circ, parameters) = create_hardware_aware_circuit(width=width, layers=layers, backend=backend, parameterized=True)
+    (transpiled_circ, parameters) = create_hardware_aware_circuit(
+        width=width, layers=layers, backend=backend, parameterized=True
+    )
     seed = 234987
     rng = np.random.default_rng(seed)
-    
-    param_values = [[rng.uniform(0, np.pi * 2) for idx in range(sum([len(param) for param in parameters]))] 
-                     for idx in range(num_circuits)]
-    
+
+    param_values = [
+        [
+            rng.uniform(0, np.pi * 2)
+            for idx in range(sum([len(param) for param in parameters]))
+        ]
+        for idx in range(num_circuits)
+    ]
+
     experimental_opts = {"execution": {"fast_parametric_update": True}}
     options = SamplerOptions(experimental=experimental_opts)
     if execution_path:
         options.experimental["execution_path"] = execution_path
 
     with Session(backend=backend) as session:
-        sampler=Sampler(mode=session, options=options)
-        job = sampler.run([(transpiled_circ, param_values , shots)])
-    
+        sampler = Sampler(mode=session, options=options)
+        job = sampler.run([(transpiled_circ, param_values, shots)])
+
     return job
 
-class clops_benchmark:
 
-    def __init__(self,
+class clops_benchmark:
+    def __init__(
+        self,
         service: QiskitRuntimeService,
         backend_name: str,
         width: int = 100,
@@ -379,7 +395,6 @@ class clops_benchmark:
         pipelines: int = 1,
         execution_path: Optional[str] = None,
     ):
-        
         """Run CLOPS benchmark through Sampler primitive
 
         Args:
@@ -392,14 +407,14 @@ class clops_benchmark:
             rep_delay: Optional, delay between circuits, default is set to system value
             num_circuits: Optional, number of circuits (parameter updates) run for the benchmark
                           default is 1000.  Adjust as necessary to get sufficient iterations.
-                          For non-twirled benchmarking may need to be significantly reduced to 
+                          For non-twirled benchmarking may need to be significantly reduced to
                           meet API input size limits
             circuit_type: Optional, determines how parameters are handled:
-                        "twirled": default value, sends in a single unparameterized circuit and configures 
+                        "twirled": default value, sends in a single unparameterized circuit and configures
                                    Sampler to run `num_circuits` twirls (parameterized) of the circuit
                         "parameterized": sends in a single parameterized circuit with `num_circuits` parameter sets
                         "instantiated": binds parameters locally and sends batches of instantiated circuits to be run
-            batch_size: Optional, indicates how many circuits should be sent in per job to the backend. Only used 
+            batch_size: Optional, indicates how many circuits should be sent in per job to the backend. Only used
                         for `instantiated` circuit_type. Default is None
             pipelines: Optional, number of parallel processes used to instantiate parameters and submit jobs to
                     the backend. Only used for `instantiated` circuit_type.  Default is 1
@@ -407,41 +422,54 @@ class clops_benchmark:
                         Sampler
         """
 
-        #service = QiskitRuntimeService(channel="ibm_quantum")
+        # service = QiskitRuntimeService(channel="ibm_quantum")
         backend = service.backend(backend_name)
         if rep_delay is None:
             rep_delay = backend.configuration().default_rep_delay
 
-        self.job_attributes = {"backend_name": backend_name, "width": width, "layers": layers, "shots": shots,
-                               "rep_delay": rep_delay, "num_circuits": num_circuits, "circuit_type": circuit_type,
-                               "batch_size": batch_size, "pipelines": pipelines}
-        
+        self.job_attributes = {
+            "backend_name": backend_name,
+            "width": width,
+            "layers": layers,
+            "shots": shots,
+            "rep_delay": rep_delay,
+            "num_circuits": num_circuits,
+            "circuit_type": circuit_type,
+            "batch_size": batch_size,
+            "pipelines": pipelines,
+        }
+
         if circuit_type == "twirled":
-            self.job = run_twirled(backend, width, layers, shots, rep_delay, num_circuits, execution_path)
+            self.job = run_twirled(
+                backend, width, layers, shots, rep_delay, num_circuits, execution_path
+            )
             self.clops = self._clops_throughput_sampler
         elif circuit_type == "parameterized":
-            self.job = run_parameterized(backend, width, layers, shots, rep_delay, num_circuits, execution_path)
+            self.job = run_parameterized(
+                backend, width, layers, shots, rep_delay, num_circuits, execution_path
+            )
             self.clops = self._clops_throughput_sampler
         elif circuit_type == "instantiated":
             raise ValueError("'circuit_type' instantiated not yet supported")
         else:
             raise ValueError("'circuit_type' " + circuit_type + " invalid")
-        
-        
+
     def _clops_throughput_sampler(self):
-        """ Measures the overall CLOPS throughput based off of intermediate
-        job metadata returned from the sampler. This metadata indicates the 
+        """Measures the overall CLOPS throughput based off of intermediate
+        job metadata returned from the sampler. This metadata indicates the
         start and end time for each sub-job executed on the qpu.  For larger
-        jobs (large number of twirls or large number of circuits/parameters) 
+        jobs (large number of twirls or large number of circuits/parameters)
         jobs are split into chunks that efficiently run on the qpu. To calculate
-        the steady state throughput we use the time from the end of the first 
+        the steady state throughput we use the time from the end of the first
         sub-job to the end of the last sub-job, skipping the startup costs
-        for the first job to get the pipeline full. The goal is to predict 
-        the expected performance for large scale error mitigated workloads 
+        for the first job to get the pipeline full. The goal is to predict
+        the expected performance for large scale error mitigated workloads
         without having to run huge number of circuits"""
 
         result = self.job.result()
-        execution_spans: ExecutionSpans = result.metadata["execution"]["execution_spans"]
+        execution_spans: ExecutionSpans = result.metadata["execution"][
+            "execution_spans"
+        ]
         spans = execution_spans.sort()
         span: ExecutionSpan
         sum_size: int = 0
@@ -452,8 +480,9 @@ class clops_benchmark:
         end_time_last_sub_job = spans.stop
         end_time_first_sub_job = spans[0].stop
 
-        clops = round(((sum_size - spans[0].size) * self.job_attributes["layers"]) / 
-                      (end_time_last_sub_job - end_time_first_sub_job
-        ).total_seconds())
+        clops = round(
+            ((sum_size - spans[0].size) * self.job_attributes["layers"])
+            / (end_time_last_sub_job - end_time_first_sub_job).total_seconds()
+        )
 
         return clops

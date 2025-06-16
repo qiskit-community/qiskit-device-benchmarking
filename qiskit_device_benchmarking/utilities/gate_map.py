@@ -15,17 +15,14 @@
 # A simplified alteration of the qiskit version to just use matplotlib
 # Will only work for Eagle, HeronR1, HeronR2
 
-import math
 from typing import List
 
-import numpy as np
 import rustworkx as rx
 from rustworkx.visualization import mpl_draw
 
 from qiskit.exceptions import QiskitError
 from qiskit.utils import optionals as _optionals
 from qiskit.transpiler.coupling import CouplingMap
-from qiskit.visualization.exceptions import VisualizationError
 
 
 def _get_backend_interface_version(backend):
@@ -356,7 +353,7 @@ def plot_gate_map(
         [13, 0],
         [13, 4],
         [13, 8],
-        [13, 12]
+        [13, 12],
     ]
 
     qubit_coordinates_map[156] = [
@@ -517,7 +514,7 @@ def plot_gate_map(
         [14, 14],
         [14, 15],
     ]
-    
+
     backend_version = _get_backend_interface_version(backend)
     if backend_version <= 1:
         if backend.configuration().simulator:
@@ -541,8 +538,10 @@ def plot_gate_map(
             )
 
     if qubit_coordinates is None:
-        raise QiskitError("No matching coordinate found, code has only 127, 133, 156 backends")
-        
+        raise QiskitError(
+            "No matching coordinate found, code has only 127, 133, 156 backends"
+        )
+
     return plot_coupling_map(
         num_qubits,
         qubit_coordinates,
@@ -621,12 +620,6 @@ def plot_coupling_map(
             coupling_map = [[0, 1], [1, 2], [2, 3], [3, 5], [4, 5], [5, 6], [2, 4], [6, 7]]
             plot_coupling_map(num_qubits, qubit_coordinates, coupling_map)
     """
-    import matplotlib.pyplot as plt
-    from qiskit.visualization.utils import matplotlib_close_if_inline
-
-    input_axes = False
-    if ax:
-        input_axes = True
 
     if qubit_size is None:
         qubit_size = 30
@@ -663,11 +656,10 @@ def plot_coupling_map(
     for edge_index in graph.edge_indices():
         graph.update_edge_by_index(edge_index, edge_index)
 
-    # pixel-to-inch conversion
-    px = 1.15 / plt.rcParams["figure.dpi"]
-
     if qubit_coordinates:
-        qubit_coordinates = {i: qubit_coordinates[i][::-1] for i in range(len(qubit_coordinates))}
+        qubit_coordinates = {
+            i: qubit_coordinates[i][::-1] for i in range(len(qubit_coordinates))
+        }
 
     if font_size is None:
         max_characters = max(1, max(len(str(x)) for x in qubit_labels))
@@ -683,16 +675,14 @@ def plot_coupling_map(
     def node_label(node):
         return str(qubit_labels[node])
 
-    
-    plot = mpl_draw(
+    mpl_draw(
         graph,
-        pos = qubit_coordinates,
-        labels = node_label,
-        font_size = font_size,
-        font_color = font_color,
-        with_labels = label_qubits,
-        node_color = qubit_color,
-        edge_color = line_color,
-        ax=ax
+        pos=qubit_coordinates,
+        labels=node_label,
+        font_size=font_size,
+        font_color=font_color,
+        with_labels=label_qubits,
+        node_color=qubit_color,
+        edge_color=line_color,
+        ax=ax,
     )
-

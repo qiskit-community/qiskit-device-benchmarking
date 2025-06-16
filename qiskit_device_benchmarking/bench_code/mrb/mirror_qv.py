@@ -87,7 +87,7 @@ class MirrorQuantumVolume(BaseExperiment):
         pauli_randomize: Optional[bool] = True,
         pauli_randomize_barriers: Optional[bool] = False,
         left_and_right: Optional[bool] = False,
-        he: Optional[bool] = False
+        he: Optional[bool] = False,
     ):
         """Initialize a quantum volume experiment.
 
@@ -110,7 +110,9 @@ class MirrorQuantumVolume(BaseExperiment):
         Raises:
             Warning: if user attempts to split_inverse a QV experiment with odd depth
         """
-        super().__init__(qubits, analysis=MirrorQuantumVolumeAnalysis(), backend=backend)
+        super().__init__(
+            qubits, analysis=MirrorQuantumVolumeAnalysis(), backend=backend
+        )
 
         # Set configurable options
         self.set_experiment_options(trials=trials, seed=seed)
@@ -119,12 +121,14 @@ class MirrorQuantumVolume(BaseExperiment):
         # always set pauli_randomize to False if split_inverse is False
         self.pauli_randomize = pauli_randomize and self.split_inverse
         # always set pauli_randomize_barriers to False if pauli_randomize is False
-        self.pauli_randomize_barriers = pauli_randomize_barriers and self.pauli_randomize
+        self.pauli_randomize_barriers = (
+            pauli_randomize_barriers and self.pauli_randomize
+        )
         self.middle_pauli_randomize = False
 
         self.left_and_right = left_and_right and pauli_randomize
         self.he = he
-        
+
         if he and left_and_right:
             raise QiskitError("Not supported for HE and left and right")
 
@@ -138,29 +142,32 @@ class MirrorQuantumVolume(BaseExperiment):
                 "Cannot split and invert QV circuits with odd depth. Circuits will not "
                 + "undergo these modifications and target bitstrings will not be computed."
             )
-            
+
         self._static_trans_circuits = None
-        
-        
+
     def dd_circuits(self) -> List[QuantumCircuit]:
-        
-        #run transpiler first
+        # run transpiler first
         self._transpiled_circuits()
-        
+
         if self.backend is None:
             raise QiskitError("Can't run dd without backend specified")
-            
+
         durations = InstructionDurations.from_backend(self.backend)
-        
+
         dd_sequence = [XGate(), XGate()]
-        pm = PassManager([ALAPScheduleAnalysis(durations),
-                          PadDynamicalDecoupling(durations, dd_sequence, qubits=self._physical_qubits)])
-        
+        pm = PassManager(
+            [
+                ALAPScheduleAnalysis(durations),
+                PadDynamicalDecoupling(
+                    durations, dd_sequence, qubits=self._physical_qubits
+                ),
+            ]
+        )
+
         self._static_trans_circuits = pm.run(self._static_trans_circuits)
-        
+
         return self._static_trans_circuits
-        
-  
+
     def _transpiled_circuits(self, retranspile: bool = False) -> List[QuantumCircuit]:
         """Transpiled circuits
 
@@ -168,24 +175,23 @@ class MirrorQuantumVolume(BaseExperiment):
             retranspile: If true will re call the transpiled circuits function. If false, return
             the transpiled circuits if they exist
         """
-        
+
         if (not retranspile) and (self._static_trans_circuits is not None):
             return self._static_trans_circuits
-        
+
         self._static_trans_circuits = super()._transpiled_circuits()
-        
-        #add the measurement now
-        #NEED TO BE CAREFUL BECAUSE THE LAYOUT MAY HAVE PERMUTED
+
+        # add the measurement now
+        # NEED TO BE CAREFUL BECAUSE THE LAYOUT MAY HAVE PERMUTED
         for circ in self._static_trans_circuits:
             cregs = ClassicalRegister(self._num_qubits, name="c")
-            #circ.measure_active()
-            #qv_circ.measure_active()
+            # circ.measure_active()
+            # qv_circ.measure_active()
             circ.add_register(cregs)
             circ.barrier(self._physical_qubits)
             for qi in range(self._num_qubits):
                 circ.measure(circ.layout.final_index_layout()[qi], qi)
-            
-            
+
         return self._static_trans_circuits
 
     @classmethod
@@ -207,7 +213,6 @@ class MirrorQuantumVolume(BaseExperiment):
 
         return options
 
-
     def circuits(self) -> List[QuantumCircuit]:
         """Return a list of Quantum Volume circuits.
 
@@ -221,20 +226,18 @@ class MirrorQuantumVolume(BaseExperiment):
         # Note: the trials numbering in the metadata is starting from 1 for each new experiment run
         for trial in range(1, self.experiment_options.trials + 1):
             if self.he:
-                
-                #assume linear connectivity
-                #but we could feed in a coupling map
-                #copied from qiskit.circuit.library.QuantumVolume
-                #and adopted for he
+                # assume linear connectivity
+                # but we could feed in a coupling map
+                # copied from qiskit.circuit.library.QuantumVolume
+                # and adopted for he
                 name = "quantum_volume_he" + str([depth, depth]).replace(" ", "")
                 qv_circ = QuantumCircuit(depth, name=name)
                 unitary_seeds = rng.integers(low=1, high=1000, size=[depth, depth])
 
                 for i in range(depth):
-                    all_edges = [(i,i+1) for i in range(depth-1)]
+                    all_edges = [(i, i + 1) for i in range(depth - 1)]
                     selected_edges = []
                     while all_edges:
-                
                         rand_edge = all_edges.pop(rng.integers(len(all_edges)))
                         selected_edges.append(rand_edge)
                         old_all_edges = all_edges[:]
@@ -243,25 +246,28 @@ class MirrorQuantumVolume(BaseExperiment):
                         for edge in old_all_edges:
                             if rand_edge[0] not in edge and rand_edge[1] not in edge:
                                 all_edges.append(edge)
-                
+
                     for edge_i, edge in enumerate(selected_edges):
-                        su4 = random_unitary(4, seed=unitary_seeds[i][edge_i]).to_instruction()
+                        su4 = random_unitary(
+                            4, seed=unitary_seeds[i][edge_i]
+                        ).to_instruction()
                         su4.label = "su4_" + str(unitary_seeds[i][edge_i])
-                        qv_circ.compose(su4, [edge[0],edge[1]], inplace=True)
-                                
+                        qv_circ.compose(su4, [edge[0], edge[1]], inplace=True)
+
             else:
-                qv_circ = QuantumVolumeCircuit(depth, depth, seed=rng)   
+                qv_circ = QuantumVolumeCircuit(depth, depth, seed=rng)
                 qv_circ = qv_circ.decompose()
-            cregs = ClassicalRegister(depth, name="c")
             if self.split_inverse and depth % 2 == 0:
                 if self.left_and_right:
-                    qv_circ, target, right_qv_circ, right_target = self.mirror_qv_circuit(
-                        qv_circ,
-                        pauli_randomize=self.pauli_randomize,
-                        pauli_randomize_barriers=self.pauli_randomize_barriers,
-                        middle_pauli_randomize=self.middle_pauli_randomize,
-                        left_and_right=self.left_and_right,
-                        seed=rng,
+                    qv_circ, target, right_qv_circ, right_target = (
+                        self.mirror_qv_circuit(
+                            qv_circ,
+                            pauli_randomize=self.pauli_randomize,
+                            pauli_randomize_barriers=self.pauli_randomize_barriers,
+                            middle_pauli_randomize=self.middle_pauli_randomize,
+                            left_and_right=self.left_and_right,
+                            seed=rng,
+                        )
                     )
                 else:
                     qv_circ, target = self.mirror_qv_circuit(
@@ -272,12 +278,12 @@ class MirrorQuantumVolume(BaseExperiment):
                         left_and_right=self.left_and_right,
                         seed=rng,
                     )
-            #qv_circ.measure_active()
-            #qv_circ.add_register(cregs)
-            #qv_circ.barrier([i for i in range(depth)])
-            #for qi in range(depth):
+            # qv_circ.measure_active()
+            # qv_circ.add_register(cregs)
+            # qv_circ.barrier([i for i in range(depth)])
+            # for qi in range(depth):
             #    qv_circ.measure(qi, qi)
-                
+
             qv_circ.metadata = {
                 "experiment_type": self._type,
                 "depth": depth,
@@ -334,8 +340,7 @@ class MirrorQuantumVolume(BaseExperiment):
             A modifed QV circuit
         """
         depth = self._num_qubits
-        
-        
+
         dag = circuit_to_dag(qv_circ)
         subdags = []  # DAG circuits in the left half
         right_subdags = []  # DAG circuits in the right half
@@ -355,7 +360,7 @@ class MirrorQuantumVolume(BaseExperiment):
                 right_new_dag.compose(subdag)
 
         new_qv_circ = dag_to_circuit(new_dag)
-            
+
         new_qv_circ_inv = new_qv_circ.inverse()  # mirrored QV circuit from left half
         if left_and_right:
             right_new_qv_circ = dag_to_circuit(right_new_dag)
@@ -402,7 +407,9 @@ class MirrorQuantumVolume(BaseExperiment):
             target = "".join(["1" if x else "0" for x in composed_pauli.x[::-1]])
             if left_and_right:
                 right_composed_pauli = paulis[3].compose(paulis[5])
-                right_target = "".join(["1" if x else "0" for x in right_composed_pauli.x[::-1]])
+                right_target = "".join(
+                    ["1" if x else "0" for x in right_composed_pauli.x[::-1]]
+                )
             else:
                 right_target = "0" * self._num_qubits
         else:

@@ -13,7 +13,6 @@
 Quantum Volume analysis class.
 """
 
-
 import numpy as np
 from uncertainties import unumpy as unp
 from uncertainties import ufloat
@@ -24,12 +23,15 @@ from qiskit_experiments.framework import (
     BaseAnalysis,
     AnalysisResultData,
     Options,
-    ExperimentData
+    ExperimentData,
 )
 from qiskit_experiments.framework.containers import ArtifactData
 
-#import this data processor from rb_analysis
-from qiskit_device_benchmarking.bench_code.mrb.mirror_rb_analysis import _ComputeQuantities
+# import this data processor from rb_analysis
+from qiskit_device_benchmarking.bench_code.mrb.mirror_rb_analysis import (
+    _ComputeQuantities,
+)
+
 
 class MirrorQuantumVolumeAnalysis(BaseAnalysis):
     r"""A class to analyze mirror quantum volume experiments.
@@ -38,7 +40,7 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
         Calculate the success (fraction of target measured) and polarization
         Optionally calcuate an effective HOP
     """
-    
+
     def _initialize(self, experiment_data: ExperimentData):
         """Initialize curve analysis by setting up the data processor for Mirror
         RB data.
@@ -57,10 +59,12 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
             if self.depth is None:
                 self.depth = trial_depth
             elif trial_depth != self.depth:
-                raise AnalysisError("QuantumVolume circuits do not all have the same depth.")
+                raise AnalysisError(
+                    "QuantumVolume circuits do not all have the same depth."
+                )
 
         num_qubits = self.depth
-        
+
         self.set_options(
             data_processor=DataProcessor(
                 input_key="counts",
@@ -100,15 +104,13 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
                 "Effective Polarization",
             ],
         )
-        
+
         return options
 
-   
     def _run_analysis(
-            self,
-            experiment_data: ExperimentData,
-        ): 
-
+        self,
+        experiment_data: ExperimentData,
+    ):
         results = []
         artifacts = []
 
@@ -120,9 +122,7 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
 
         success_prob_result = AnalysisResultData(
             "mean_success_probability",
-            value=ufloat(
-                nominal_value=np.mean(yvals), std_dev=np.std(yvals)
-            ),
+            value=ufloat(nominal_value=np.mean(yvals), std_dev=np.std(yvals)),
             quality="good",
             extra={
                 "depth": self.depth,
@@ -138,11 +138,11 @@ class MirrorQuantumVolumeAnalysis(BaseAnalysis):
         )
 
         if self.options.plot:
-            #figure out what to do
+            # figure out what to do
             figures = None
         else:
             figures = None
-        
+
         results.append(success_prob_result)
-        
-        return results+artifacts, figures
+
+        return results + artifacts, figures
