@@ -25,9 +25,10 @@ from qiskit.providers.backend import Backend
 from qiskit.circuit import CircuitInstruction, Barrier
 from qiskit_experiments.library.randomized_benchmarking import StandardRB
 
-SequenceElementType = Union[Clifford, Integral, QuantumCircuit]
-
 from .purrb_analysis import PurityRBAnalysis
+
+
+SequenceElementType = Union[Clifford, Integral, QuantumCircuit]
 
 
 class PurityRB(StandardRB):

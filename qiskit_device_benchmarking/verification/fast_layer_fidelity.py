@@ -16,22 +16,13 @@ Fast Layer Fidelity on the reported 100Q qiskit chain
 """
 
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from typing import Dict, List, Tuple
+from typing import List
 import datetime
 import os
 
 from qiskit_ibm_runtime import QiskitRuntimeService
-from qiskit_ibm_runtime.ibm_backend import IBMBackend
-from qiskit_experiments.framework.experiment_data import ExperimentData
-from qiskit_experiments.library.randomized_benchmarking import LayerFidelity
-from qiskit.visualization import plot_gate_map
-from qiskit.transpiler import CouplingMap
 
 import qiskit_device_benchmarking.utilities.layer_fidelity_utils as lfu
-import qiskit_device_benchmarking.utilities.graph_utils as gu
 import qiskit_device_benchmarking.utilities.file_utils as fu
 
 
@@ -49,7 +40,7 @@ def run_fast_lf(
     try:
         print(f"Creating folder {parent_path}")
         os.mkdir(parent_path)
-    except:
+    except FileExistsError:
         pass
     print(f"Changing directory to {parent_path}")
     os.chdir(parent_path)

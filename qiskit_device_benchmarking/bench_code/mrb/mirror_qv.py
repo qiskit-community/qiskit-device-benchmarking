@@ -257,7 +257,6 @@ class MirrorQuantumVolume(BaseExperiment):
             else:
                 qv_circ = QuantumVolumeCircuit(depth, depth, seed=rng)
                 qv_circ = qv_circ.decompose()
-            cregs = ClassicalRegister(depth, name="c")
             if self.split_inverse and depth % 2 == 0:
                 if self.left_and_right:
                     qv_circ, target, right_qv_circ, right_target = (

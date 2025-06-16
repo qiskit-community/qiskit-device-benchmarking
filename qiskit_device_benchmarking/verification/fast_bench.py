@@ -172,7 +172,7 @@ def run_bench(
         expdata = job_list[i]
         try:
             expdata.block_for_results()
-        except:
+        except Exception:
             # remove backend from results
             print("Error loading backend %s results" % backend)
             result_dict.pop(backend)

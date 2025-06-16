@@ -20,6 +20,7 @@ from typing import Sequence, List, Dict, Iterator, Optional, Union, Tuple
 import lmfit
 import numpy as np
 import qiskit_experiments.curve_analysis as curve
+from matplotlib.figure import Figure
 from matplotlib.markers import MarkerStyle
 from numpy.random import Generator
 from numpy.random.bit_generator import BitGenerator, SeedSequence
@@ -619,8 +620,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
     @classmethod
     def _initialize_sub_analysis(cls, qubit, slot, rb_type, qubit_type, set_ind):
         parameter_name_alpha = f"alpha_{rb_type}_{qubit_type}_q{qubit}"
-        parameter_name_a = f"a_{rb_type}_{qubit_type}_q{qubit}"
-        parameter_name_b = f"b_{rb_type}_{qubit_type}_q{qubit}"
 
         analysis = SubDecayFit(name=f"{rb_type}_{qubit}_{set_ind}")
 
@@ -744,7 +743,7 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
     def _create_figures(
         self,
         curve_data: ScatterTable,
-    ) -> List["matplotlib.figure.Figure"]:
+    ) -> List[Figure]:
         fig_list = []
 
         self.plotter.clear_supplementary_data()
@@ -801,7 +800,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
     ) -> Tuple[List[Union[AnalysisResultData, ArtifactData]], List[FigureType]]:
         result_data: List[Union[AnalysisResultData, ArtifactData]] = []
         figures: List[FigureType] = []
-        artifacts: list[ArtifactData] = []
 
         result_data, figures = super()._run_analysis(experiment_data)
 

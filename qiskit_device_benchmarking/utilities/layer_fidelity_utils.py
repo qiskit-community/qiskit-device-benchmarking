@@ -68,9 +68,6 @@ def run_lf_chain(
     # Get the coupling_map
     coupling_map = CouplingMap(backend.configuration().coupling_map)
 
-    # Get graph from coupling map
-    G = coupling_map.graph
-
     # Decompose chain into trivial two disjoint layers (list of list of gates)
     print("Decomposing qubit chain into two disjoint layers")
     all_pairs = gu.path_to_edges([chain], coupling_map)[0]
@@ -169,8 +166,6 @@ def reconstruct_lf_per_length(
     """
     # Get the coupling_map
     coupling_map = CouplingMap(backend.configuration().coupling_map)
-    # Get the coupling_map
-    G = coupling_map.graph
 
     # Recover layers from experiment
     all_pairs = gu.path_to_edges([qchain], coupling_map)[0]
@@ -229,7 +224,7 @@ def reconstruct_lf_per_length(
             lens = np.arange(4, length + 1, 1)
 
             # Get EPLG by chain length
-            num_2q_gates = [l - 1 for l in lens]
+            num_2q_gates = [L - 1 for L in lens]
             chain_eplgs = [
                 4 / 5 * (1 - (fid ** (1 / num_2q)))
                 for num_2q, fid in zip(num_2q_gates, chain_fids)
@@ -262,8 +257,6 @@ def make_lf_eplg_plots(
     """
     # Get the coupling_map
     coupling_map = CouplingMap(backend.configuration().coupling_map)
-    # Get the coupling_map
-    G = coupling_map.graph
 
     # cover layers from experiment
     all_pairs = gu.path_to_edges([chain], coupling_map)[0]  # list of lists

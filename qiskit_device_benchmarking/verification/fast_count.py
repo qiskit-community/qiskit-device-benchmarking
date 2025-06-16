@@ -104,7 +104,7 @@ def run_count(hgp, backends, nshots=100, act_name=""):
         expdata = job_list[i]
         try:
             expdata.block_for_results()
-        except:
+        except Exception:
             # remove backend from results
             print("Error loading backend %s results" % backend)
             result_dict.pop(backend)
@@ -144,7 +144,7 @@ def run_count(hgp, backends, nshots=100, act_name=""):
 
             avg_degree = avg_degree / len(largest_cc)
 
-        except:
+        except Exception:
             largest_cc = {}
             avg_degree = 1
 

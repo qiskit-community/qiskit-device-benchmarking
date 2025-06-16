@@ -15,17 +15,14 @@
 # A simplified alteration of the qiskit version to just use matplotlib
 # Will only work for Eagle, HeronR1, HeronR2
 
-import math
 from typing import List
 
-import numpy as np
 import rustworkx as rx
 from rustworkx.visualization import mpl_draw
 
 from qiskit.exceptions import QiskitError
 from qiskit.utils import optionals as _optionals
 from qiskit.transpiler.coupling import CouplingMap
-from qiskit.visualization.exceptions import VisualizationError
 
 
 def _get_backend_interface_version(backend):
@@ -623,12 +620,6 @@ def plot_coupling_map(
             coupling_map = [[0, 1], [1, 2], [2, 3], [3, 5], [4, 5], [5, 6], [2, 4], [6, 7]]
             plot_coupling_map(num_qubits, qubit_coordinates, coupling_map)
     """
-    import matplotlib.pyplot as plt
-    from qiskit.visualization.utils import matplotlib_close_if_inline
-
-    input_axes = False
-    if ax:
-        input_axes = True
 
     if qubit_size is None:
         qubit_size = 30
@@ -665,9 +656,6 @@ def plot_coupling_map(
     for edge_index in graph.edge_indices():
         graph.update_edge_by_index(edge_index, edge_index)
 
-    # pixel-to-inch conversion
-    px = 1.15 / plt.rcParams["figure.dpi"]
-
     if qubit_coordinates:
         qubit_coordinates = {
             i: qubit_coordinates[i][::-1] for i in range(len(qubit_coordinates))
@@ -687,7 +675,7 @@ def plot_coupling_map(
     def node_label(node):
         return str(qubit_labels[node])
 
-    plot = mpl_draw(
+    mpl_draw(
         graph,
         pos=qubit_coordinates,
         labels=node_label,

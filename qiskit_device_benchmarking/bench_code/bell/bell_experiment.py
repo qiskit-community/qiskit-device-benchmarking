@@ -164,7 +164,6 @@ class BellAnalysis(BaseAnalysis):
 
         # Process the data here
         from qiskit.quantum_info import hellinger_fidelity
-        from qiskit.result import marginal_counts
         import pandas as pd
 
         res = experiment_data.data()
@@ -223,7 +222,6 @@ def make_bell_circs(layered_coupling_map, conf, cxnum):
     (e.g. [[1_2, 3_4], [5_6, 7_8]] is okay, but [[1_2, 3_4], [1_2, 5_6, 7_8]] is not okay)
     """
 
-    from qiskit.transpiler import CouplingMap
 
     n_reset = 2
     cxnum = 5
@@ -289,7 +287,7 @@ def extract_ind_counts(crs, counts, measure_idle):
     # of classical register in circuit composer in run code
     if not measure_idle:
         bits = flatten_bits(crs)
-        nbits = len(bits)
+        len(bits)
         bit2idx = {}
         for i, bit in enumerate(bits):
             bit2idx.update({int(bit): i})
