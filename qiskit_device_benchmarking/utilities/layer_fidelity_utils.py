@@ -1203,5 +1203,93 @@ def update_error_dict(
 
         if len(updated_errs) > 0:
             error_dict[gate] = float(np.mean(updated_errs))
-
+    
     return error_dict
+
+def layer_fid_chain(error_dict, chain):
+
+    """
+    Take in a error dictionary and chain and calculate layer fid
+
+    Args:
+        error_dict: a dictionary of gate pairs and errors {'1_2': 0.001, '3_5': 0.02} and/or
+        single qubit and errors {'1': 0.001}
+        chain: 1D chain of qubits
+    Returns:
+        layer fidelity (depolarizing approx)
+    """
+
+    fid_layer = 1
+
+    for qind,q in enumerate(chain):
+
+        #treat the beginning and end differently
+        if qind==0 or qind==(len(chain)-1):
+
+            if '%d'%q in error_dict:
+                fp = 1 - 3/2*error_dict['%d'%q]
+                fid_layer *= fp
+
+        if qind==(len(chain)-1):
+            continue
+
+        if '%d_%d'%(q,chain[qind+1]) in error_dict:
+            key_ind = '%d_%d'%(q,chain[qind+1])
+        else:
+            key_ind = '%d_%d'%(chain[qind+1],q)
+
+        #simple gamma calc for depolarizing errors
+        fp = 1 - ((2**(2)+1)/2**(2))*error_dict[key_ind]
+
+        fid_layer *= fp
+
+    return fid_layer
+
+def best_chain(nq, coupling_map, error_dict, path_len=10, 
+               best_fid_guess=0.95, fid_cutoff=0.9):
+
+    """
+    For a particular coupling map and error directionary compute the best
+    chains **heuristically** using DFS
+    Warning: this can be very time consuming if the wrong settings are used
+    Length 100 chain on eagle, with fid_cutoff=0.95 should take about a minute
+
+    Args:
+        nq: number of qubits 
+        coupling_map: coupling map for the backend (list)
+        error_dict: a dictionary of gate pairs and errors {'1_2': 0.001, '3_5': 0.02} and/or
+        single qubit and errors {'1': 0.001}
+        path_len: Length of the chains to find
+        best_fid_guess: initial guess at the best fidelity. 
+        fid_cutoff: Will reject any paths that don't seem to be better than fid_cutoff*best_fid
+        If this is set to 0, ALL paths will be found, but this is very time consuming
+        If this is set to, e.g., 0.99, then it will heuristically restrict the paths
+        and the time will shorter but not guaranteed to find the best path
+    Returns:
+        layer fidelity (depolarizing approx)
+    """
+
+    best_fid = [best_fid_guess]
+
+    #calculate all the gammas from the reported gate errors
+    len_sets_fid = []
+    len_sets_all = []
+
+    #create this graph dictionary of each qubit and it's neighbors
+    graph_dict = gu.create_graph_dict(coupling_map, nq)
+
+    for j in range(nq):
+        start_q = j
+        len_sets = gu.iter_neighbors(graph_dict,start_q,error_dict,
+                                best_fid,fid_cutoff,[start_q],1.,path_len)
+
+        for i in range(len(len_sets)):
+            len_sets[i].reverse
+            if len_sets[i] in len_sets_all:
+                continue
+            len_sets_all.append(len_sets[i])
+            len_sets_fid.append(layer_fid_chain(error_dict,len_sets[i]))
+
+    
+    ind_sort = np.argsort(len_sets_fid)
+    return len_sets_all[ind_sort], len_sets_fid[ind_sort]
