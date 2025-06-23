@@ -318,7 +318,7 @@ def make_lf_eplg_plots(
     # Plot LF by chain length
     fig1, ax1 = plt.subplots(figsize=(8.5, 4))
     title_lf = f"{machine} {time} LF for fixed {len(chain)}q chains"
-    label_lf = f"Lf: {np.round(chain_fids[-1],3)}"
+    label_lf = f"Lf: {np.round(chain_fids[-1], 3)}"
     ax1.plot(chain_lens, chain_fids, marker="o", linestyle="-", label=label_lf)  # lfs
     ax1.set_title(title_lf, fontsize=11)
     ax1.set_xlim(0, chain_lens[-1] * 1.05)
@@ -333,7 +333,7 @@ def make_lf_eplg_plots(
 
     # Plot EPLG by chain length
     fig2, ax2 = plt.subplots(figsize=(8.5, 4))
-    label_eplg = f"Eplg: {np.round(chain_eplgs[-1],3)}"
+    label_eplg = f"Eplg: {np.round(chain_eplgs[-1], 3)}"
     title_eplg = f"{machine} {time} EPLG for fixed {len(chain)}q chains"
     ax2.plot(
         chain_lens, chain_eplgs, marker="o", linestyle="-", label=label_eplg

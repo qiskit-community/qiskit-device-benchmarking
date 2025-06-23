@@ -222,7 +222,6 @@ def make_bell_circs(layered_coupling_map, conf, cxnum):
     (e.g. [[1_2, 3_4], [5_6, 7_8]] is okay, but [[1_2, 3_4], [1_2, 5_6, 7_8]] is not okay)
     """
 
-
     n_reset = 2
     cxnum = 5
     insert_barrier = False
