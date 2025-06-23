@@ -11,7 +11,8 @@
 # that they have been altered from the originals.
 
 import numpy as np
-from qiskit import QuantumCircuit, QuantumRegister
+import copy
+from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit.circuit import Parameter
 from qiskit.circuit.library import (TwoLocal, CZGate, ECRGate,
                                     RZGate, SXGate) 
@@ -21,6 +22,15 @@ from qiskit.primitives.containers.bindings_array import BindingsArray
 from qiskit.transpiler import PassManager, TransformationPass
 from qiskit.dagcircuit import DAGCircuit
 from qiskit.synthesis import OneQubitEulerDecomposer
+from qiskit.primitives.containers.observables_array import ObservablesArray
+from qiskit.primitives.containers.estimator_pub import EstimatorPub
+
+from qiskit_ibm_runtime import SamplerV2
+from qiskit_experiments.library.randomized_benchmarking import LayerFidelity
+from qiskit_experiments.framework.experiment_data import ExperimentData
+
+import qiskit_device_benchmarking.utilities.layer_fidelity_utils as lfu
+
 
 """Utilities for running large Clifford and XEB circuits"""
 
@@ -137,6 +147,7 @@ class Cliffordize:
         self.nlayers = None
         self.bindings = None
         self.observables = None
+        self.cliff_inds = None
         self.construct()
         
     def get_circuit(self):
@@ -168,11 +179,11 @@ class Cliffordize:
 
             #only 1 cliffordization, so repeat nsamples times
 
-            cliff_inds, _  = self._random_cliff_bindings(nrands=1)
-            cliff_inds = [cliff_inds[0] for i in range(self.nsamples)]
+            _, _  = self._random_cliff_bindings(nrands=1)
+            self.cliff_inds = [self.cliff_inds[0] for i in range(self.nsamples)]
 
         else:
-            cliff_inds, _  = self._random_cliff_bindings()
+            _, _  = self._random_cliff_bindings()
 
         #Construct the input and output pauli's for direct fidelity estimation
         
@@ -252,7 +263,7 @@ class Cliffordize:
                     precliff = Cliffordize.pauli_preps[1]
                 postcliff = self._single_cliffs[self.cliff_inds[s][0][q]]
                 newcliff = precliff.compose(postcliff)
-                cliff_inds[s][0][q] = self._single_cliffs.index(newcliff)
+                self.cliff_inds[s][0][q] = self._single_cliffs.index(newcliff)
             input_supp=[]
             for p in reversed(pauli):
                 if p=='I':
@@ -273,7 +284,7 @@ class Cliffordize:
                     postcliff = Cliffordize.pauli_preps[1]
                 precliff = self._single_cliffs[self.cliff_inds[s][-1][q]]
                 newcliff = precliff.compose(postcliff)
-                cliff_inds[s][-1][q] = self._single_cliffs.index(newcliff)
+                self.cliff_inds[s][-1][q] = self._single_cliffs.index(newcliff)
             out=''
             for p in output_Paulis[s]:
                 if p=='X' or p=='Y' or p=='Z':
@@ -282,7 +293,7 @@ class Cliffordize:
                     out+=p
             output_Paulis[s] = out
 
-        cliff_inds,_ = self._random_cliff_bindings(cliff_inds=cliff_inds)
+        _,_ = self._random_cliff_bindings(cliff_inds=self.cliff_inds)
 
         #construct observables
         self.observables = np.empty(self.nsamples, dtype=SparsePauliOp)
@@ -292,7 +303,7 @@ class Cliffordize:
             self.observables[samp] = SparsePauliOp(pauli_str)
 
 
-        return cliff_inds, self.bindings, self.observables
+        return self.cliff_inds, self.bindings, self.observables
 
     
     def _random_cliff_bindings(self, cliff_inds=None, nrands=None):
@@ -324,6 +335,7 @@ class Cliffordize:
         })
 
         self.bindings = bindings
+        self.cliff_inds = cliff_inds
 
         return cliff_inds, bindings
     
@@ -371,6 +383,62 @@ class Cliffordize:
 
         #number of layers in the circuit
         self.nlayers = np.max([int(str(p).split('_')[1])+1 for p in self.circuit.parameters])
+
+
+    def to_pub(self, backend, initial_layout):
+
+        """
+        Turn the cliffodized object into a pub that can
+        be used for the estimator 
+
+        Args:
+            backend: backend to run on
+            initial_layout: layout on the device
+        Returns:
+            pub that can be sent to the estimator
+            
+        """
+
+        circuit = self.circuit
+
+        if self.observables is None or self.bindings is None:
+            raise ValueError('Cannot run to_pub without first running random_cliff')
+                
+        circuit = transpile(circuit, backend=backend, 
+                            initial_layout=initial_layout, optimization_level=1)
+        
+        obs = ObservablesArray([ observable.apply_layout(circuit.layout) for observable in self.observables])
+        
+        estimator_pub = EstimatorPub(
+            circuit=circuit,
+            observables=obs,
+            parameter_values=self.bindings
+        )
+
+        return estimator_pub
+    
+    def to_sampler(self, backend, initial_layout):
+
+        """
+        Turn the cliffodized object with haar bindings to a sampler object
+
+        Args:
+            backend: backend to run on
+            initial_layout: layout on the device
+        Returns:
+            pub that can be sent to the sampler
+            
+        """
+
+        #add measurements to the internal circuit
+        circuit_internal = copy.deepcopy(self.circuit)
+        circuit_internal.measure_all()
+        
+        circuit_internal = transpile(circuit_internal, backend=backend, 
+                                     initial_layout=initial_layout, optimization_level=1)
+        sampler_input = (circuit_internal,self.bindings)
+
+        return sampler_input
 
 
     def _clifford_param_val(self, par_str, cliff_inds):
@@ -493,12 +561,12 @@ def spam_circs(nq, layers, depths=[0,2]):
         layers: set of chains
         depth: list of depths
     Returns:
-        pam circuit list
+        spam circuit list
     """
 
     #two bitstrings are the all 0's and the all 1's
     all_bitstrings = ['0'*nq]
-    all_bitstrings.append(['1'*nq])
+    all_bitstrings.append('1'*nq)
 
     all_circs = []
     for d in depths:
@@ -552,4 +620,232 @@ def bricklayer_circ(nq, depth, gate = 'cz', singles='x', onlylayer=None):
     return circ
 
 
+def run_eplg_and_spam(grid_chain_flt, layers, backend, 
+                      twoq_gate, oneq_gates, 
+                      batch_run=False, lf_samples = 6,
+                      lf_lengths = [1, 10, 20, 30, 40, 60, 80, 100, 150, 200, 400]):
+    """
+    Run the EPLG grid circuits and SPAM
 
+    Args:
+        grid_chain_flt: list of chain of qubits in the grid
+        layers: the 2Q gates to run
+        backend: backend to run these one
+        twoq_gate: two qubit gate
+        oneq_gates: one qubit gate
+        batch_run: Run as a batch (to do: not implemented )
+        lf_samples: number of samples to use for the grid run
+        lf_lengths: lengths to use for the lf runs
+        
+    Returns:
+        lfexps: the list of lf experiments
+        eplg_job_ids: job ids from lf experiments
+        spam_job_id: job id from the spam
+    """
+
+    if batch_run:
+        print('Batch run not implemented yet')
+    
+    lfexps = []
+    
+    for i in range(len(grid_chain_flt)):
+        lfexps.append(LayerFidelity(
+            physical_qubits=grid_chain_flt[i],
+            two_qubit_layers=layers[2*i:(2*i+2)],
+            lengths=lf_lengths,
+            backend=backend,
+            num_samples=lf_samples,
+            seed=60,
+            two_qubit_gate=twoq_gate,
+            one_qubit_basis_gates=oneq_gates,
+        ))
+    
+        #set the synthesis method so that we match the brickwork circuits
+        lfexps[-1].experiment_options.clifford_synthesis_method = '1Q_fixed'
+        lfexps[-1].experiment_options.max_circuits = lf_samples*len(lf_lengths)
+    
+    nshots = 200
+    
+    # Run the LF experiment (generate circuits and submit the job)
+    exp_job_id_lst = []
+    
+    for i in range(len(grid_chain_flt)):
+        exp_data = lfexps[i].run(shots=nshots)
+        print(f"Run experiment: ID={exp_data.experiment_id} with jobs {exp_data.job_ids}]")
+        exp_job_id_lst.append(exp_data.job_ids)
+
+    #use this sampler for the EPLG/spam runs
+    spam_circ_lst = spam_circs(backend.num_qubits, layers)
+    sampler = SamplerV2(backend)
+    job_spam = sampler.run(spam_circ_lst,shots=2046)
+    spam_id = job_spam.job_id()
+
+    return lfexps, exp_job_id_lst, spam_id
+
+def eplg_analysis(lfexps, eplg_ids, service, backend, 
+                  twoq_gate, layers):
+
+    """
+    Analyze the eplg runs
+
+    Args:
+        lfexps: the lf experiment objs
+        eplg_ids: the job ids
+        service: the loaded qiskit runtime service containing the backend 
+        backend: backend we ran these one
+        twoq_gate: two qubit gate
+        layers: the grid layers
+        
+    Returns:
+        updated error dictionary from the backend
+    """
+
+    #reload the job data using the IDs
+    exp_data_lst = []
+    for i in range(len(lfexps)):
+
+        exp_data_lst.append(ExperimentData(experiment = lfexps[i]))
+        exp_data_lst[-1].add_jobs([service.job(eplg_ids[i])])
+        lfexps[i].analysis.run(exp_data_lst[-1], replace_results=True)
+
+    print('retrieving elpg data')
+    #make an updated error map
+    updated_err_dicts = []
+    err_dict = lfu.make_error_dict(backend, twoq_gate)
+
+    for i in range(len(lfexps)):
+        #get the results from the experiment
+        df = exp_data_lst[i].analysis_results(dataframe=True)
+        for j in range(2):
+            updated_err_dicts.append(lfu.df_to_error_dict(df,layers[2*i+j]))
+
+
+    err_dict = lfu.update_error_dict(err_dict, updated_err_dicts)
+    return err_dict
+
+def spam_analysis(nq, service, spam_id, layers):
+    """
+    Analyze the spam runs
+
+    Args:
+        nq: number of qubits
+        service: the loaded qiskit runtime service containing the backend 
+        spam_id: job id for the spam job
+        layers: the grid layers
+        
+    Returns:
+        readout fidelities
+    """
+
+    depths = [0,2]
+    print('retrieving spam data')
+    job = service.job(spam_id)
+    res = job.result()
+    errors = []
+    l=0 #layer
+    raw = raw_bits(res)
+    for q in range(nq):
+        err = 0
+        survivals0, survivals1 = binned_survivals(raw, depths, layers, q)
+        for l,layer in enumerate(layers):
+            err+=(2-np.mean(np.array(survivals0[l]), axis=1)-np.mean(np.array(survivals1[l]), axis=1))/2/len(layers)
+        errors.append(err)
+    errors=np.array(errors)
+    readout_fids = 1-errors[:,1]
+    return readout_fids
+
+
+def raw_bits(res):
+    """
+    Pull out bitstrings from sampler result
+
+    Args:
+        res: sampler result
+        
+    Returns:
+        raw bitstring
+    """
+
+    raw_bitarrays=[]
+    #strip off annoying container stuff
+    for r in res:
+        test = r.data
+        raw_bitarrays.append([test[d] for d in test][0])
+
+    return np.array(raw_bitarrays)
+
+def binned_survivals(raw_bitarrays, depths, layers, qubit):
+    """
+    Qubit by qubit binning of the readout results P01, P10
+    by depth and layers
+
+    Args:
+        raw_bitarrays: the full bitstrings
+        depths: number of cz's
+        layers: layout of cz
+        qubit: which qubit to analyze
+        
+    Returns:
+        survival0/1 for qubit
+    """
+
+    bitstrings = ['0','1']
+    survivals0 = [[[] for i,_ in enumerate(depths)] for j,_ in enumerate(layers)]
+    survivals1 = [[[] for i,_ in enumerate(depths)] for j,_ in enumerate(layers)]
+    
+    ind = 0
+    for indd,d in enumerate(depths):
+        for indl, _ in enumerate(layers):
+            for _, bit in enumerate(bitstrings):
+                sliced =  raw_bitarrays[ind].slice_bits([qubit])
+                
+                
+                counts = sliced.get_counts()
+                shots = np.sum([val for val in counts.values()])
+                
+                
+                if bit=='0':
+                    if '0' in counts.keys():
+                        correct = counts['0']
+                    else:
+                        correct = 0
+                    
+                    survivals0[indl][indd].append(correct/shots)
+                else:
+                    if '1' in counts.keys():
+                        correct = counts['1']
+                    else:
+                        correct = 0
+                    
+                    survivals1[indl][indd].append(correct/shots)
+                ind+=1
+                    
+    return survivals0, survivals1
+
+def xeb(nq, counts, ideal_counts):
+    """
+    Calculate the cross entropy
+
+    Args:
+        nq: number of qubits
+        counts: count dictionary
+        ideal_counts: ideal counts dictionary
+        
+    Returns:
+        xeb, xeb_ideal
+    """
+
+    p_0 = 0
+    p_0_ideal = 0
+
+    total_shots = 0
+    
+    for i in counts:
+        p_0 += counts[i]*ideal_counts.get(i,0)
+        total_shots += counts[i]
+
+    for i in ideal_counts:
+        p_0_ideal += ideal_counts[i]**2
+
+
+    return 2**nq*p_0/total_shots-1, 2**nq*p_0_ideal-1

@@ -1266,7 +1266,8 @@ def best_chain(nq, coupling_map, error_dict, path_len=10,
         If this is set to, e.g., 0.99, then it will heuristically restrict the paths
         and the time will shorter but not guaranteed to find the best path
     Returns:
-        layer fidelity (depolarizing approx)
+        chains: chains found (sorted best to worst)
+        fids: fidelity of chains found (sorted best to worst)
     """
 
     best_fid = [best_fid_guess]
@@ -1293,3 +1294,48 @@ def best_chain(nq, coupling_map, error_dict, path_len=10,
     
     ind_sort = np.argsort(len_sets_fid)
     return len_sets_all[ind_sort], len_sets_fid[ind_sort]
+
+
+def grid_chain_to_layers(backend, coupling_map):
+
+    """
+    Turn the grid chains into a set of n disjoint layers
+
+    Args:
+        backend
+        coupling_map
+    Returns:
+        grid_chain_flt
+        layers
+    """
+
+    #first get the grid chains, these are hard coded in the layer fidelity utilities module
+    grid_chains = get_grids(backend)
+
+    #there are two sets of chains that can be run in four disjoint experiments
+    print('Decomposing grid chain into disjoint layers')
+    layers = [[] for i in range(4)]
+    grid_chain_flt = [[],[]]
+    for i in range(2):
+        all_pairs = gu.path_to_edges(grid_chains[i], coupling_map)
+        for j, pair_lst in enumerate(all_pairs):
+            grid_chain_flt[i] += grid_chains[i][j]
+            sub_pairs = [tuple(pair) for pair in pair_lst] # make this is a list of tuples
+            layers[2*i] += sub_pairs[0::2]
+            layers[2*i+1] += sub_pairs[1::2]
+
+    # Check that each list is in the coupling map and is disjoint
+    for layer in layers:
+        for qpair in layer:
+            if tuple(qpair) not in coupling_map:
+                raise ValueError(f"Gate on {qpair} does not exist")
+
+            for k in layer:
+                if k == qpair:
+                    continue
+
+                if k[0] in qpair or k[1] in qpair:
+                    print(f'Warning: sets are not disjoint for gate {k} and {qpair}')
+
+
+    return grid_chain_flt, layers
