@@ -34,6 +34,13 @@ cd qiskit-device-benchmarking
 pip install .
 ```
 
+# Run Tests
+
+```
+pip install pytest
+pytest
+```
+
 # Lint
 
 ```
