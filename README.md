@@ -34,6 +34,14 @@ cd qiskit-device-benchmarking
 pip install .
 ```
 
+# Lint
+
+```
+pip install ruff
+ruff check      # Lint files
+ruff format     # Format files
+```
+
 # Contribution Guidelines
 
 Please open a github issue or pull request if you would like to contribute.
