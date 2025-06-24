@@ -2,11 +2,13 @@ import pytest
 
 from qiskit.providers.jobstatus import JobStatus
 from qiskit_experiments.framework import AnalysisStatus
-from qiskit_ibm_runtime.fake_provider import FakeFez, FakeFractionalBackend
+from qiskit_ibm_runtime.fake_provider import FakeFez
 
-from qiskit_device_benchmarking.clops.clops_benchmark import create_hardware_aware_circuit
-from qiskit_device_benchmarking.mirror_test.mirror_pub import MirrorPubOptions
-from qiskit_device_benchmarking.bench_code.bell import CHSHExperiment, BellExperiment
+from qiskit_device_benchmarking.clops.clops_benchmark import (
+    create_hardware_aware_circuit,
+)
+from qiskit_device_benchmarking.bench_code.bell import CHSHExperiment
+
 # from qiskit_device_benchmarking.bench_code.dynamic_circuits_rb import DynamicCircuitsRB
 # from qiskit_device_benchmarking.bench_code.mcm_rb_experiment import McmRB
 from qiskit_device_benchmarking.bench_code.mrb.mirror_qv import MirrorQuantumVolume
@@ -19,12 +21,9 @@ def backend():
     return FakeFez()
 
 
-def test_clops_hardware_aware_circuit(backend): 
+def test_clops_hardware_aware_circuit(backend):
     qc, params = create_hardware_aware_circuit(
-        width=100,
-        layers=100,
-        backend=backend,
-        parameterized=False
+        width=100, layers=100, backend=backend, parameterized=False
     )
 
     assert qc.num_qubits == 100
@@ -32,10 +31,7 @@ def test_clops_hardware_aware_circuit(backend):
     assert not params
 
     qc, params = create_hardware_aware_circuit(
-        width=100,
-        layers=100,
-        backend=backend,
-        parameterized=True
+        width=100, layers=100, backend=backend, parameterized=True
     )
 
     assert qc.num_qubits == 100
@@ -49,9 +45,9 @@ def test_clops_hardware_aware_circuit(backend):
 #     pub_options.target_num_2q_gates = 4986
 #     pub_options.theta = 0
 #     pub_options.path_strategy = "eplg_chain"
-# 
+#
 #     pubs = pub_options.get_pubs(backend)
-#     
+#
 #     for circuit, obs, params in pubs:
 #         assert circuit.num_qubits == 100
 #         assert circuit.depth() == 4986
@@ -66,7 +62,7 @@ def test_chsh_experiment(backend):
     assert s.value
 
 
-# This test attempts to open matplotlib, which it should not be doing with this 
+# This test attempts to open matplotlib, which it should not be doing with this
 # code. This code needs to be resolved for the test to be re-introduced.
 #
 # def test_bell_experiment(backend):
@@ -76,7 +72,7 @@ def test_chsh_experiment(backend):
 #     hf = exp_data.analysis_results(dataframe=True)
 #     assert exp_data.job_status() == JobStatus.DONE
 #     assert exp_data.analysis_status() == AnalysisStatus.DONE
-# 
+#
 #     fidelity = hf.iloc[0].value.fidelity
 #     assert fidelity
 
@@ -90,8 +86,8 @@ def test_chsh_experiment(backend):
 #     exp_data = exp.run(backend=backend).block_for_results()
 #     assert exp_data.job_status() == JobStatus.DONE
 #     assert exp_data.analysis_status() == AnalysisStatus.DONE
-# 
-# 
+#
+#
 # def test_mcm_rb(backend):
 #     exp = McmRB(
 #         clif_qubit_sets=[(0, 1), (1, 0)],
@@ -106,7 +102,9 @@ def test_chsh_experiment(backend):
 def test_mirror_qv(backend):
     exp = MirrorQuantumVolume(qubits=[0, 1], backend=backend)
     exp_data = exp.run(backend=backend).block_for_results()
-    mean_success_probability = exp_data.analysis_results("mean_success_probability", dataframe=True).iloc[0]
+    mean_success_probability = exp_data.analysis_results(
+        "mean_success_probability", dataframe=True
+    ).iloc[0]
     assert exp_data.job_status() == JobStatus.DONE
     assert exp_data.analysis_status() == AnalysisStatus.DONE
     assert mean_success_probability.value
