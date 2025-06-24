@@ -20,6 +20,7 @@ from typing import Sequence, List, Dict, Iterator, Optional, Union, Tuple
 import lmfit
 import numpy as np
 import qiskit_experiments.curve_analysis as curve
+from matplotlib.figure import Figure
 from matplotlib.markers import MarkerStyle
 from numpy.random import Generator
 from numpy.random.bit_generator import BitGenerator, SeedSequence
@@ -294,7 +295,6 @@ class McmRB(BaseExperiment):
                     if n_elms <= (length * self._cliff_per_meas) and (
                         np.mod(n_elms, self._cliff_per_meas) == 0
                     ):
-
                         qregs_mapped = [
                             qregs[self.physical_qubits.index(mlq._index)]
                             for mlq in meas_layer.qubits
@@ -576,7 +576,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
         default_markers = MarkerStyle(".").filled_markers
 
         for i in range(len(clif_qubit_sets)):
-
             slot_idx = clif_start_ind[i]
             for qubit in clif_qubit_sets[i]:
                 if 1:
@@ -621,8 +620,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
     @classmethod
     def _initialize_sub_analysis(cls, qubit, slot, rb_type, qubit_type, set_ind):
         parameter_name_alpha = f"alpha_{rb_type}_{qubit_type}_q{qubit}"
-        parameter_name_a = f"a_{rb_type}_{qubit_type}_q{qubit}"
-        parameter_name_b = f"b_{rb_type}_{qubit_type}_q{qubit}"
 
         analysis = SubDecayFit(name=f"{rb_type}_{qubit}_{set_ind}")
 
@@ -684,7 +681,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
             qubits.add(qind)
 
         for qind in qubits:
-
             qset_ind = -1
             for i in range(len(self._q_sets)):
                 if qind in self._q_sets[i]:
@@ -711,7 +707,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
                 )
 
         for qind in qubits:
-
             qset_ind = -1
             for i in range(len(self._q_sets)):
                 if qind in self._q_sets[i]:
@@ -748,17 +743,14 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
     def _create_figures(
         self,
         curve_data: ScatterTable,
-    ) -> List["matplotlib.figure.Figure"]:
-
+    ) -> List[Figure]:
         fig_list = []
 
         self.plotter.clear_supplementary_data()
 
         for i in range(len(self._q_sets)):
-
             self.plotter.clear_series_data()
             for analysis in self.analyses():
-
                 if int(analysis.name.split("_")[2]) != i:
                     continue
 
@@ -808,7 +800,6 @@ class McmRBAnalysis(curve.CompositeCurveAnalysis):
     ) -> Tuple[List[Union[AnalysisResultData, ArtifactData]], List[FigureType]]:
         result_data: List[Union[AnalysisResultData, ArtifactData]] = []
         figures: List[FigureType] = []
-        artifacts: list[ArtifactData] = []
 
         result_data, figures = super()._run_analysis(experiment_data)
 

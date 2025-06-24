@@ -14,3 +14,8 @@ Classes
 """
 
 from .dc_rb_experiment import DynamicCircuitsRB, DynamicCircuitsRBAnalysis
+
+__all__ = [
+    DynamicCircuitsRB,
+    DynamicCircuitsRBAnalysis,
+]

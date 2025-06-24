@@ -165,7 +165,6 @@ class DynamicCircuitsRB(BaseExperiment):
         return circuits
 
     def ff_circ(self, ff_type):
-
         circ = QuantumCircuit(self.num_qubits, self.num_qubits)
         timing = BackendTiming(self.backend)
         durations = DynamicCircuitInstructionDurations.from_backend(self.backend)
@@ -349,7 +348,6 @@ class DynamicCircuitsRBAnalysis(SubDecayFit):
         self,
         experiment_data,
     ):
-
         analysis_results, figs = [], []
         q_m = self.physical_qubits[-1]
         for ff_type in self.ff_operations:
@@ -429,7 +427,6 @@ class DynamicCircuitsRBAnalysis(SubDecayFit):
 
     @classmethod
     def _default_options(cls):
-
         default_options = super()._default_options()
         default_options.plot_raw_data = True
         default_options.average_method = "sample"
