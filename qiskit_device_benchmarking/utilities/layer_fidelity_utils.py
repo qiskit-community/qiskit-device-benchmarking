@@ -1203,11 +1203,11 @@ def update_error_dict(
 
         if len(updated_errs) > 0:
             error_dict[gate] = float(np.mean(updated_errs))
-    
+
     return error_dict
 
-def layer_fid_chain(error_dict, chain):
 
+def layer_fid_chain(error_dict, chain):
     """
     Take in a error dictionary and chain and calculate layer fid
 
@@ -1221,33 +1221,32 @@ def layer_fid_chain(error_dict, chain):
 
     fid_layer = 1
 
-    for qind,q in enumerate(chain):
-
-        #treat the beginning and end differently
-        if qind==0 or qind==(len(chain)-1):
-
-            if '%d'%q in error_dict:
-                fp = 1 - 3/2*error_dict['%d'%q]
+    for qind, q in enumerate(chain):
+        # treat the beginning and end differently
+        if qind == 0 or qind == (len(chain) - 1):
+            if "%d" % q in error_dict:
+                fp = 1 - 3 / 2 * error_dict["%d" % q]
                 fid_layer *= fp
 
-        if qind==(len(chain)-1):
+        if qind == (len(chain) - 1):
             continue
 
-        if '%d_%d'%(q,chain[qind+1]) in error_dict:
-            key_ind = '%d_%d'%(q,chain[qind+1])
+        if "%d_%d" % (q, chain[qind + 1]) in error_dict:
+            key_ind = "%d_%d" % (q, chain[qind + 1])
         else:
-            key_ind = '%d_%d'%(chain[qind+1],q)
+            key_ind = "%d_%d" % (chain[qind + 1], q)
 
-        #simple gamma calc for depolarizing errors
-        fp = 1 - ((2**(2)+1)/2**(2))*error_dict[key_ind]
+        # simple gamma calc for depolarizing errors
+        fp = 1 - ((2 ** (2) + 1) / 2 ** (2)) * error_dict[key_ind]
 
         fid_layer *= fp
 
     return fid_layer
 
-def best_chain(nq, coupling_map, error_dict, path_len=10, 
-               best_fid_guess=0.95, fid_cutoff=0.9):
 
+def best_chain(
+    nq, coupling_map, error_dict, path_len=10, best_fid_guess=0.95, fid_cutoff=0.9
+):
     """
     For a particular coupling map and error directionary compute the best
     chains **heuristically** using DFS
@@ -1255,12 +1254,12 @@ def best_chain(nq, coupling_map, error_dict, path_len=10,
     Length 100 chain on eagle, with fid_cutoff=0.95 should take about a minute
 
     Args:
-        nq: number of qubits 
+        nq: number of qubits
         coupling_map: coupling map for the backend (list)
         error_dict: a dictionary of gate pairs and errors {'1_2': 0.001, '3_5': 0.02} and/or
         single qubit and errors {'1': 0.001}
         path_len: Length of the chains to find
-        best_fid_guess: initial guess at the best fidelity. 
+        best_fid_guess: initial guess at the best fidelity.
         fid_cutoff: Will reject any paths that don't seem to be better than fid_cutoff*best_fid
         If this is set to 0, ALL paths will be found, but this is very time consuming
         If this is set to, e.g., 0.99, then it will heuristically restrict the paths
@@ -1272,32 +1271,38 @@ def best_chain(nq, coupling_map, error_dict, path_len=10,
 
     best_fid = [best_fid_guess]
 
-    #calculate all the gammas from the reported gate errors
+    # calculate all the gammas from the reported gate errors
     len_sets_fid = []
     len_sets_all = []
 
-    #create this graph dictionary of each qubit and it's neighbors
+    # create this graph dictionary of each qubit and it's neighbors
     graph_dict = gu.create_graph_dict(coupling_map, nq)
 
     for j in range(nq):
         start_q = j
-        len_sets = gu.iter_neighbors(graph_dict,start_q,error_dict,
-                                best_fid,fid_cutoff,[start_q],1.,path_len)
+        len_sets = gu.iter_neighbors(
+            graph_dict,
+            start_q,
+            error_dict,
+            best_fid,
+            fid_cutoff,
+            [start_q],
+            1.0,
+            path_len,
+        )
 
         for i in range(len(len_sets)):
             len_sets[i].reverse
             if len_sets[i] in len_sets_all:
                 continue
             len_sets_all.append(len_sets[i])
-            len_sets_fid.append(layer_fid_chain(error_dict,len_sets[i]))
+            len_sets_fid.append(layer_fid_chain(error_dict, len_sets[i]))
 
-    
     ind_sort = np.argsort(len_sets_fid)
     return len_sets_all[ind_sort], len_sets_fid[ind_sort]
 
 
 def grid_chain_to_layers(backend, coupling_map):
-
     """
     Turn the grid chains into a set of n disjoint layers
 
@@ -1309,20 +1314,22 @@ def grid_chain_to_layers(backend, coupling_map):
         layers
     """
 
-    #first get the grid chains, these are hard coded in the layer fidelity utilities module
+    # first get the grid chains, these are hard coded in the layer fidelity utilities module
     grid_chains = get_grids(backend)
 
-    #there are two sets of chains that can be run in four disjoint experiments
-    print('Decomposing grid chain into disjoint layers')
+    # there are two sets of chains that can be run in four disjoint experiments
+    print("Decomposing grid chain into disjoint layers")
     layers = [[] for i in range(4)]
-    grid_chain_flt = [[],[]]
+    grid_chain_flt = [[], []]
     for i in range(2):
         all_pairs = gu.path_to_edges(grid_chains[i], coupling_map)
         for j, pair_lst in enumerate(all_pairs):
             grid_chain_flt[i] += grid_chains[i][j]
-            sub_pairs = [tuple(pair) for pair in pair_lst] # make this is a list of tuples
-            layers[2*i] += sub_pairs[0::2]
-            layers[2*i+1] += sub_pairs[1::2]
+            sub_pairs = [
+                tuple(pair) for pair in pair_lst
+            ]  # make this is a list of tuples
+            layers[2 * i] += sub_pairs[0::2]
+            layers[2 * i + 1] += sub_pairs[1::2]
 
     # Check that each list is in the coupling map and is disjoint
     for layer in layers:
@@ -1335,7 +1342,6 @@ def grid_chain_to_layers(backend, coupling_map):
                     continue
 
                 if k[0] in qpair or k[1] in qpair:
-                    print(f'Warning: sets are not disjoint for gate {k} and {qpair}')
-
+                    print(f"Warning: sets are not disjoint for gate {k} and {qpair}")
 
     return grid_chain_flt, layers
