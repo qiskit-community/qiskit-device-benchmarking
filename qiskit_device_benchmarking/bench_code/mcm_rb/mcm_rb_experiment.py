@@ -49,7 +49,6 @@ from qiskit.transpiler.passes import (
     EnlargeWithAncilla,
     FullAncillaAllocation,
     ApplyLayout,
-    PulseGates,
 )
 from qiskit_experiments.data_processing import (
     DataProcessor,
@@ -420,7 +419,6 @@ class McmRB(BaseExperiment):
     def _transpile_single_circuit(self, circuit, apply_scheduling=False):
         initial_layout = Layout.from_intlist(self.physical_qubits, *circuit.qregs)
         coupling_map = CouplingMap(self._backend_data.coupling_map)
-        inst_map = self.backend.defaults().instruction_schedule_map
 
         transpiler = StagedPassManager(stages=["layout", "calibration", "scheduling"])
         transpiler.layout = PassManager(
@@ -431,7 +429,6 @@ class McmRB(BaseExperiment):
                 ApplyLayout(),
             ]
         )
-        transpiler.calibration = PassManager(PulseGates(inst_map))
         transpiler.scheduling = (
             self._generate_dd_pass_manager() if apply_scheduling else None
         )
