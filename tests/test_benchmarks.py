@@ -2,15 +2,15 @@ import pytest
 
 from qiskit.providers.jobstatus import JobStatus
 from qiskit_experiments.framework import AnalysisStatus
-from qiskit_ibm_runtime.fake_provider import FakeFez
+from qiskit_ibm_runtime.fake_provider import FakeFez, FakeFractionalBackend, FakeWashingtonV2
 
 from qiskit_device_benchmarking.clops.clops_benchmark import (
     create_hardware_aware_circuit,
 )
 from qiskit_device_benchmarking.bench_code.bell import CHSHExperiment
 
-# from qiskit_device_benchmarking.bench_code.dynamic_circuits_rb import DynamicCircuitsRB
-# from qiskit_device_benchmarking.bench_code.mcm_rb_experiment import McmRB
+from qiskit_device_benchmarking.bench_code.dynamic_circuits_rb import DynamicCircuitsRB
+from qiskit_device_benchmarking.bench_code.mcm_rb.mcm_rb_experiment import McmRB
 from qiskit_device_benchmarking.bench_code.mrb.mirror_qv import MirrorQuantumVolume
 from qiskit_device_benchmarking.bench_code.mrb.mirror_rb_experiment import MirrorRB
 from qiskit_device_benchmarking.bench_code.prb.pur_rb import PurityRB
@@ -45,9 +45,9 @@ def test_clops_hardware_aware_circuit(backend):
 #     pub_options.target_num_2q_gates = 4986
 #     pub_options.theta = 0
 #     pub_options.path_strategy = "eplg_chain"
-#
+# 
 #     pubs = pub_options.get_pubs(backend)
-#
+# 
 #     for circuit, obs, params in pubs:
 #         assert circuit.num_qubits == 100
 #         assert circuit.depth() == 4986
@@ -80,23 +80,23 @@ def test_chsh_experiment(backend):
 # ImportError causes tests to fail, error needs to be resolved for tests
 # to be re-introduced.
 #
-# def test_dynamic_circuits_rb():
-#     backend = FakeFractionalBackend()
-#     exp = DynamicCircuitsRB(physical_qubits=backend.coupling_map.physical_qubits, backend=backend)
-#     exp_data = exp.run(backend=backend).block_for_results()
-#     assert exp_data.job_status() == JobStatus.DONE
-#     assert exp_data.analysis_status() == AnalysisStatus.DONE
-#
-#
-# def test_mcm_rb(backend):
-#     exp = McmRB(
-#         clif_qubit_sets=[(0, 1), (1, 0)],
-#         meas_qubit_sets=[(0, 1), (1, 0)],
-#         backend=backend
-#     )
-#     exp_data = exp.run(backend=backend).block_for_results()
-#     assert exp_data.job_status() == JobStatus.DONE
-#     assert exp_data.analysis_status() == AnalysisStatus.DONE
+def test_dynamic_circuits_rb():
+    backend = FakeFractionalBackend()
+    exp = DynamicCircuitsRB(physical_qubits=backend.coupling_map.physical_qubits, backend=backend)
+    exp_data = exp.run(backend=backend).block_for_results()
+    assert exp_data.job_status() == JobStatus.DONE
+    assert exp_data.analysis_status() == AnalysisStatus.DONE
+
+
+def test_mcm_rb(backend):
+    exp = McmRB(
+        clif_qubit_sets=[(0, 1)],
+        meas_qubit_sets=[(2, 3)],
+        backend=backend
+    )
+    exp_data = exp.run(backend=backend).block_for_results()
+    assert exp_data.job_status() == JobStatus.DONE
+    assert exp_data.analysis_status() == AnalysisStatus.DONE
 
 
 def test_mirror_qv(backend):
@@ -110,7 +110,8 @@ def test_mirror_qv(backend):
     assert mean_success_probability.value
 
 
-def test_mirror_rb(backend):
+def test_mirror_rb():
+    backend = FakeWashingtonV2()
     exp = MirrorRB(physical_qubits=[0, 1, 2], lengths=[2], backend=backend)
     exp_data = exp.run(backend=backend).block_for_results()
     assert exp_data.job_status() == JobStatus.DONE
