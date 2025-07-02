@@ -25,6 +25,7 @@ For clarity here we provide links from various papers to the code in this repo. 
 - [Mirror QV](https://arxiv.org/abs/2303.02108): Mirko Amico, Helena Zhang, Petar Jurcevic, Lev S. Bishop, Paul Nation, Andrew Wack, David C. McKay. Defining Standard Strategies for Quantum Benchmarks (2023). [Code](https://github.com/qiskit-community/qiskit-device-benchmarking/tree/main/qiskit_device_benchmarking/bench_code/mrb)
 - [Mid-circuit measurement RB](https://arxiv.org/abs/2207.04836): Luke C. G. Govia, Petar Jurcevic, Christopher J. Wood, Naoki Kanazawa, Seth T. Merkel, David C. McKay. A randomized benchmarking suite for mid-circuit measurements (2022). [Code](notebooks/mcm_rb.ipynb)
 - [Dynamic circuits RB](https://arxiv.org/abs/2408.07677): Liran Shirizly, Luke C. G. Govia, David C. McKay. Randomized Benchmarking Protocol for Dynamic Circuits (2024). [Code](notebooks/dynamic_circuits_rb.ipynb)
+- [Clifford Benchmarking](https://arxiv.org/abs/2503.05943): Seth Merkel, Timothy Proctor, Samuele Ferracin, Jordan Hines, Samantha Barron, Luke C. G. Govia, David McKay. When Clifford benchmarks are sufficient; estimating application performance with scalable proxy circuits (2025). [Code](notebooks/clifford_xeb_lf.ipynb)
 
 # Installation
 
