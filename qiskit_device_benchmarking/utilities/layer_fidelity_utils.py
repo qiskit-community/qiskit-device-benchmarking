@@ -1299,7 +1299,7 @@ def best_chain(
             len_sets_fid.append(layer_fid_chain(error_dict, len_sets[i]))
 
     ind_sort = np.argsort(len_sets_fid)
-    return len_sets_all[ind_sort], len_sets_fid[ind_sort]
+    return np.array(len_sets_all)[ind_sort], np.array(len_sets_fid)[ind_sort]
 
 
 def grid_chain_to_layers(backend, coupling_map):

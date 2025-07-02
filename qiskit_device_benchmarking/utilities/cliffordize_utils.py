@@ -33,7 +33,7 @@ import qiskit_device_benchmarking.utilities.layer_fidelity_utils as lfu
 """Utilities for running large Clifford and XEB circuits"""
 
 
-class Single_Decomp_pass(TransformationPass):
+class SingleDecompPass(TransformationPass):
     """
     Transformation pass that converts any
     single qubit gate in the circuit into parameterized U3 form
@@ -55,11 +55,11 @@ class Single_Decomp_pass(TransformationPass):
                 continue
             if not single_layer:
                 single_layer = True
-            gate_blocks = Single_Decomp_pass.rz_sx_gate_blocks(idl, idq)
+            gate_blocks = SingleDecompPass.rz_sx_gate_blocks(idl, idq)
             dag.substitute_node_with_dag(
                 node=node,
                 wires=node.qargs,
-                input_dag=Single_Decomp_pass.par_clifford_dag(
+                input_dag=SingleDecompPass.par_clifford_dag(
                     gate_blocks=gate_blocks,
                     qubits=node.qargs,
                 ),
@@ -120,6 +120,7 @@ class Cliffordize:
 
         Args:
             circuit: base template circuit
+            nsamples: The number of samples
         Returns:
         """
 
@@ -180,11 +181,11 @@ class Cliffordize:
         if rand_outputs_only:
             # only 1 cliffordization, so repeat nsamples times
 
-            _, _ = self._random_cliff_bindings(nrands=1)
+            self._random_cliff_bindings(nrands=1)
             self.cliff_inds = [self.cliff_inds[0] for i in range(self.nsamples)]
 
         else:
-            _, _ = self._random_cliff_bindings()
+            self._random_cliff_bindings()
 
         # Construct the input and output pauli's for direct fidelity estimation
 
@@ -209,9 +210,8 @@ class Cliffordize:
 
                 output_P = pauli.evolve(cliff, frame="s")
                 pstring = ""
-                for x, z in zip(
-                    pauli.evolve(cliff, frame="s").x, pauli.evolve(cliff, frame="s").z
-                ):
+                evolved_pauli = pauli.evolve(cliff, frame="s")
+                for x, z in zip(evolved_pauli.x, evolved_pauli.z):
                     if x and z:
                         ptemp = "Y"
                     elif x:
@@ -382,17 +382,21 @@ class Cliffordize:
     def construct(self):
         """
         Convert the circuit into U3 parameteried form using the
-        Single_Decomp_pass class
+        SingleDecompPass class
 
         Caveats:
         For now the circuit coming in must be in a layered form with a layer of singles
         at the beginning and end of the circuit. To do is add checking that this is the case
         """
 
-        # layerize, TODO, make this
+        # In a future version of the code will make sure the 
+        # circuit ordering is structured in such a way that the 
+        # layering will be more obvious
         self.circuit = self.circ_to_layers(self.base_circuit)
 
-        pm = PassManager([Single_Decomp_pass()])
+        #convert a circuit which is singles and 2Q gates into
+        #parameterized form
+        pm = PassManager([SingleDecompPass()])
         self.circuit = pm.run(self.circuit)
 
         # number of layers in the circuit
@@ -400,12 +404,14 @@ class Cliffordize:
             [int(str(p).split("_")[1]) + 1 for p in self.circuit.parameters]
         )
 
-    def to_pub(self, backend, initial_layout):
+    def to_pub(self, **kwargs):
         """
-        Turn the cliffodized object into a pub that can
+        Turn the cliffordized object into a pub that can
         be used for the estimator
 
         Args:
+            kwargs which will be passed through to the transpiler
+            should include
             backend: backend to run on
             initial_layout: layout on the device
         Returns:
@@ -418,12 +424,10 @@ class Cliffordize:
         if self.observables is None or self.bindings is None:
             raise ValueError("Cannot run to_pub without first running random_cliff")
 
-        circuit = transpile(
-            circuit,
-            backend=backend,
-            initial_layout=initial_layout,
-            optimization_level=1,
-        )
+        if 'optimization_level' not in kwargs:
+            kwargs['optimization_level'] = 1
+
+        circuit = transpile(circuit, **kwargs)
 
         obs = ObservablesArray(
             [observable.apply_layout(circuit.layout) for observable in self.observables]
@@ -435,11 +439,13 @@ class Cliffordize:
 
         return estimator_pub
 
-    def to_sampler(self, backend, initial_layout):
+    def to_sampler(self, **kwargs):
         """
-        Turn the cliffodized object with haar bindings to a sampler object
+        Turn the cliffordized object with haar bindings to a sampler object
 
         Args:
+            kwargs which will be passed through to the transpiler
+            should include
             backend: backend to run on
             initial_layout: layout on the device
         Returns:
@@ -451,12 +457,10 @@ class Cliffordize:
         circuit_internal = copy.deepcopy(self.circuit)
         circuit_internal.measure_all()
 
-        circuit_internal = transpile(
-            circuit_internal,
-            backend=backend,
-            initial_layout=initial_layout,
-            optimization_level=1,
-        )
+        if 'optimization_level' not in kwargs:
+            kwargs['optimization_level'] = 1
+
+        circuit_internal = transpile(circuit_internal, **kwargs)
         sampler_input = (circuit_internal, self.bindings)
 
         return sampler_input
@@ -553,7 +557,9 @@ def readout_circuit(nq, chain, depth, output=None):
 
     # do sxd to return back to |0>
     for q in range(nq):
-        circuit.sxdg(q)
+        circuit.rz(-np.pi,q)
+        circuit.sx(q)
+        circuit.rz(-np.pi,q)
 
     # if there is a target bitstring then do pi pulses
     # on the relevant qubits
@@ -688,7 +694,7 @@ def run_eplg_and_spam(
 
         # set the synthesis method so that we match the brickwork circuits
         lfexps[-1].experiment_options.clifford_synthesis_method = "1Q_fixed"
-        lfexps[-1].experiment_options.max_circuits = lf_samples * len(lf_lengths)
+        lfexps[-1].experiment_options.max_circuits = lf_samples * len(lf_lengths) * 2
 
     nshots = 200
 
@@ -731,7 +737,7 @@ def eplg_analysis(lfexps, eplg_ids, service, backend, twoq_gate, layers):
     exp_data_lst = []
     for i in range(len(lfexps)):
         exp_data_lst.append(ExperimentData(experiment=lfexps[i]))
-        exp_data_lst[-1].add_jobs([service.job(eplg_ids[i])])
+        exp_data_lst[-1].add_jobs([service.job(ii) for ii in eplg_ids[i]])
         lfexps[i].analysis.run(exp_data_lst[-1], replace_results=True)
 
     print("retrieving elpg data")
