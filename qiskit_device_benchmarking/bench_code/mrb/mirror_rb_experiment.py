@@ -398,7 +398,12 @@ class MirrorRB(StandardRB):
         qrx = []
         for theta in self._angles:
             qc = QuantumCircuit(1)
-            qc.rx(theta, 0)
+            if theta == pi/2:
+                qc.h(0)
+                qc.s(0)
+                qc.h(0)
+            elif theta:
+                qc.rx(theta, 0)
             qc = transpile(qc, basis_gates=basis_gates, optimization_level=3)
             qrx.append(qc)
 
