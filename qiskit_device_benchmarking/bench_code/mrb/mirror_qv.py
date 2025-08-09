@@ -146,6 +146,10 @@ class MirrorQuantumVolume(BaseExperiment):
         self._static_trans_circuits = None
 
     def dd_circuits(self) -> List[QuantumCircuit]:
+
+        warnings.filterwarnings("ignore", message=".*PulseDefaults.*", category=DeprecationWarning)
+        warnings.filterwarnings("ignore", message=".*qiskit.dagcircuit.dagcircuit.DAGCircuit.*", category=DeprecationWarning)
+
         # run transpiler first
         self._transpiled_circuits()
 
