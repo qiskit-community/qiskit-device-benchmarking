@@ -232,7 +232,7 @@ class _ComputeQAQuantities(_ComputeQuantities):
         for q in self._singles[index]:
             pair_string[-1-q] = string[-1-q]
         for q0, q1 in self._pairs[index]:
-            pair_string[-1-min(q0,q1)] = str(int(string[-1-q0]==string[-1-q1]))
+            pair_string[-1-min(q0,q1)] = str(int(string[-1-q0]!=string[-1-q1]))
         return ''.join(pair_string)
 
     def _process(self, data: np.ndarray):
