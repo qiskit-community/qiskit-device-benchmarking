@@ -262,19 +262,24 @@ class _ComputeQuantities(DataAction):
         self._analyzed_quantity = analyzed_quantity
         self._target_bs = target_bs
 
+    def _rewrite_string(string, index):
+        '''Returns string unchanged. Will be overwritten for Mirror QA'''
+        return string
+
     def _process(self, data: np.ndarray):
         # Arrays to store the y-axis data and uncertainties
         y_data = []
         y_data_unc = []
 
         for i, circ_result in enumerate(data):
-            target_bs = self._target_bs[i]
+            target_bs = self._rewrite_string(self._target_bs[i], i)
 
             # h[k] = proportion of shots that are Hamming distance k away from target bitstring
             hamming_dists = np.zeros(self._num_qubits + 1)
             success_prob = 0.0
             success_prob_unc = 0.0
             for bitstring, count in circ_result.items():
+                bitstring = self._rewrite_string(bitstring, i)
                 # Compute success probability
                 if self._analyzed_quantity == "Success Probability":
                     if bitstring == target_bs:

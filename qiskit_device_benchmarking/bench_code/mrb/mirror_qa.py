@@ -221,6 +221,19 @@ class _ComputeQAQuantities(_ComputeQuantities):
         )
         self._coupling_map = coupling_map
         self._pairs = pairs
+        self._singles = singles
+
+    def _rewrite_string(self, string, index):
+        '''
+        Returns a string of equal length, pairs have parity on the lowest numbered qubit
+        and 0 on the highest.
+        '''
+        pair_string = ["0"]*len(string)
+        for q in self._singles[index]:
+            pair_string[-1-q] = string[-1-q]
+        for q0, q1 in self._pairs[index]:
+            pair_string[-1-min(q0,q1)] = str(int(string[-1-q0]==string[-1-q1]))
+        return ''.join(pair_string)
 
     def _process(self, data: np.ndarray):
         if self._analyzed_quantity == "Mutual Information":
