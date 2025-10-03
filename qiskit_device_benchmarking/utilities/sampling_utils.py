@@ -180,7 +180,9 @@ class BaseSampler(ABC):
         return gate_probs
 
     @abstractmethod
-    def __call__(self, qubits: Sequence, length: int = 1) -> Iterator[Tuple[GateInstruction, ...]]:
+    def __call__(
+        self, qubits: Sequence, length: int = 1
+    ) -> Iterator[Tuple[GateInstruction, ...]]:
         """Samplers should define this method such that it returns sampled layers
         given the input parameters. Each layer is represented by a list of
         ``GateInstruction`` namedtuples, where ``GateInstruction.op`` is the gate to be
@@ -248,7 +250,10 @@ class SingleQubitSampler(BaseSampler):
         )
 
         for samplelayer in samples:
-            yield tuple(GateInstruction(*ins) for ins in zip(((j,) for j in qubits), samplelayer))
+            yield tuple(
+                GateInstruction(*ins)
+                for ins in zip(((j,) for j in qubits), samplelayer)
+            )
 
 
 class EdgeGrabSampler(BaseSampler):
@@ -300,7 +305,9 @@ class EdgeGrabSampler(BaseSampler):
                 "The edge grab sampler requires 1-qubit and 2-qubit gates to be specified."
             ) from exc
         if not np.isclose(norm1q + norm2q, 1):
-            raise QiskitError("The edge grab sampler only supports 1- and 2-qubit gates.")
+            raise QiskitError(
+                "The edge grab sampler only supports 1- and 2-qubit gates."
+            )
 
     def __init__(
         self,
@@ -391,9 +398,13 @@ class EdgeGrabSampler(BaseSampler):
             two_qubit_prob = 0
             try:
                 # need to divide by 2 since each two-qubit gate spans two lattice sites
-                two_qubit_prob = num_qubits * two_qubit_gate_density / 2 / len(selected_edges)
+                two_qubit_prob = (
+                    num_qubits * two_qubit_gate_density / 2 / len(selected_edges)
+                )
             except ZeroDivisionError:
-                warnings.warn("Device has no connectivity. All gates will be single-qubit.")
+                warnings.warn(
+                    "Device has no connectivity. All gates will be single-qubit."
+                )
             if two_qubit_prob > 1 and not np.isclose(two_qubit_prob, 1):
                 warnings.warn(
                     "Mean number of two-qubit gates is higher than the number of selected edges. "
@@ -437,7 +448,10 @@ class EdgeGrabSampler(BaseSampler):
                 else:  # edge case of two qubit density of 1 where we still fill gaps
                     layer.append(
                         GateInstruction(
-                            (q,), self._rng.choice(np.array(gateset[1][0], dtype=Instruction))
+                            (q,),
+                            self._rng.choice(
+                                np.array(gateset[1][0], dtype=Instruction)
+                            ),
                         ),
                     )
             yield tuple(layer)
