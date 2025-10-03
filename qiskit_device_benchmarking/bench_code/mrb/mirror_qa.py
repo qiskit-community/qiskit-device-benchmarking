@@ -297,10 +297,10 @@ class QuantumAwesomeness():
             for pair, value in mi.items():
                 if tuple(pair) in pairs[c] or tuple(pair[::-1]) in pairs[c]:
                     mean_mi['paired'][-1].append(value)
+                elif not set(pair).intersection(all_paired):
+                    mean_mi['singles'][-1].append(value)
                 else:
                     mean_mi['unpaired'][-1].append(value)
-                if not set(pair).intersection(all_paired):
-                    mean_mi['singles'][-1].append(value)
             for ps in mean_mi:
                 if mean_mi[ps][-1]:
                     mean_mi[ps][-1] = np.mean(mean_mi[ps][-1])
