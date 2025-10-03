@@ -13,6 +13,7 @@
 Mirror QA Experiment class.
 """
 from typing import Union, Iterable, Optional, List, Sequence
+import itertools
 import numpy as np
 from numpy import pi
 from numpy.random import Generator, BitGenerator, SeedSequence
@@ -287,15 +288,19 @@ class QuantumAwesomeness():
             
     def mean_mutual_info(self, data: np.ndarray, pairs):
         mutual_infos = self.mutual_info(data)
-        mean_mi = {'paired':[], 'single':[]}
+        mean_mi = {'paired':[], 'unpaired':[], 'singles':[]}
         for c, mi in enumerate(mutual_infos):
             mean_mi['paired'].append([])
-            mean_mi['single'].append([])
+            mean_mi['unpaired'].append([])
+            mean_mi['singles'].append([])
+            all_paired = set(itertools.chain.from_iterable(pairs[c]))
             for pair, value in mi.items():
                 if tuple(pair) in pairs[c] or tuple(pair[::-1]) in pairs[c]:
                     mean_mi['paired'][-1].append(value)
                 else:
-                    mean_mi['single'][-1].append(value)
+                    mean_mi['unpaired'][-1].append(value)
+                if not set(pair).intersection(all_paired):
+                    mean_mi['singles'][-1].append(value)
             for ps in mean_mi:
                 if mean_mi[ps][-1]:
                     mean_mi[ps][-1] = np.mean(mean_mi[ps][-1])
