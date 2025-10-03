@@ -28,6 +28,7 @@ from qiskit.providers.backend import Backend
 from qiskit.providers.options import Options
 from qiskit.exceptions import QiskitError
 from qiskit.transpiler import CouplingMap, PassManager, InstructionDurations
+from qiskit import transpile
 from qiskit.circuit.library import (
     CXGate,
     CYGate,
@@ -51,6 +52,7 @@ from qiskit_experiments.library.randomized_benchmarking.standard_rb import (
 from qiskit_experiments.library.randomized_benchmarking.clifford_utils import (
     inverse_1q,
     _clifford_1q_int_to_instruction,
+    _clifford_2q_int_to_instruction,
 )
 from .mirror_rb_analysis import MirrorRBAnalysis
 from qiskit_device_benchmarking.utilities.clifford_utils import compute_target_bitstring
@@ -122,6 +124,8 @@ class MirrorRB(StandardRB):
         seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
         full_sampling: bool = False,
         inverting_pauli_layer: bool = False,
+        initial_entangling_angle: float = 0.0,
+        final_entangling_angle: float = 0.0,
     ):
         """Initialize a mirror randomized benchmarking experiment.
 
@@ -184,6 +188,8 @@ class MirrorRB(StandardRB):
             seed=seed, **sampler_opts
         )
         self.analysis = MirrorRBAnalysis()
+        self._two_qubit_gate = two_qubit_gate
+        self._angles = [initial_entangling_angle, final_entangling_angle]
 
     @classmethod
     def _default_experiment_options(cls) -> Options:
@@ -227,8 +233,8 @@ class MirrorRB(StandardRB):
         Returns:
             A list of :class:`QuantumCircuit`.
         """
-        sequences = self._sample_sequences()
-        circuits = self._sequences_to_circuits(sequences)
+        self._sequences = self._sample_sequences()
+        circuits = self._sequences_to_circuits(self._sequences)
 
         return circuits
 
@@ -367,6 +373,31 @@ class MirrorRB(StandardRB):
                 for real_length in build_seq_lengths:
                     sequences.append(seq[: real_length // 2] + seq[-real_length // 2 :])
 
+        # Reverse order of Clifford layers if entangling pairs used
+        if not self.experiment_options.full_sampling and any(self._angles):
+            for s, sequence in enumerate(sequences):
+                hsl = (len(sequence)-1)//2
+                reordered_sequence = []
+                for j in range(len(sequence)):
+                    h = (j > hsl)
+                    if j%2: # cliffords
+                        reordered_sequence.append(sequence[hsl-j-h])
+                    else: # paulis
+                        reordered_sequence.append(sequence[j])
+                sequences[s] = reordered_sequence
+
+        # Keep track of which qubits are paired and which not for the first Clifford layer of each circuit
+        self._pairs = []
+        self._singles = []
+        for s, sequence in enumerate(sequences):
+            self._pairs.append([])
+            self._singles.append([])
+            for gate in sequences[s][1]:
+                if len(gate.qargs) == 2:
+                    self._pairs[s].append(gate.qargs)
+                else:
+                    self._singles[s].append(gate.qargs[0])
+
         return sequences
 
     def _sequences_to_circuits(
@@ -381,16 +412,45 @@ class MirrorRB(StandardRB):
             A list of RB circuits.
         """
         basis_gates = tuple(self.backend.operation_names)
-        circuits = []
+        
+        # transpile 2q gates
+        qc2q = QuantumCircuit(2)
+        qc2q.append(self._two_qubit_gate, [0, 1])
+        qc2q = transpile(qc2q, basis_gates=basis_gates, optimization_level=3)
+        # pre-transpile pre and post rotations
+        qrx = []
+        for theta in self._angles:
+            qc = QuantumCircuit(1)
+            if theta == pi/2:
+                qc.h(0)
+                qc.s(0)
+                qc.h(0)
+            elif theta:
+                qc.rx(theta, 0)
+            qc = transpile(qc, basis_gates=basis_gates, optimization_level=3)
+            qrx.append(qc)
 
+        circuits = []
         for i, seq in enumerate(sequences):
             circ = QuantumCircuit(self.num_qubits)
             # Hack to get target bitstrings until qiskit-terra#9475 is resolved
             circ_target = QuantumCircuit(self.num_qubits)
-            for layer in seq:
+            for l, layer in enumerate(seq):
                 for elem in layer:
-                    circ.append(self._to_instruction(elem.op, basis_gates), elem.qargs)
-                    circ_target.append(self._to_instruction(elem.op), elem.qargs)
+                    instr = self._to_instruction(elem.op)
+                    qargs = elem.qargs
+                    if l == (len(seq) - 2) and instr.name == 'cx':
+                        if self._angles[1]:
+                            circ.compose(qrx[1], [qargs[0]], inplace=True)
+                    if len(qargs) == 2:
+                        # implement the compiled 2q gate
+                        circ.compose(qc2q, qargs, inplace=True)
+                    else:
+                        circ.append(self._to_instruction(elem.op, basis_gates), qargs)
+                    if l == 1 and instr.name == 'cx':
+                        if self._angles[0]:
+                            circ.compose(qrx[0], [qargs[0]], inplace=True)
+                    circ_target.append(instr, elem.qargs)
                 circ.append(Barrier(self.num_qubits), circ.qubits)
 
             circ.metadata = {
@@ -401,6 +461,9 @@ class MirrorRB(StandardRB):
                 ),
                 "target": compute_target_bitstring(circ_target),
                 "inverting_pauli_layer": self.experiment_options.inverting_pauli_layer,
+                "pairs": self._pairs[i],
+                "singles": self._singles[i],
+                "coupling_map": self.backend.coupling_map,
             }
 
             if self.experiment_options.inverting_pauli_layer:
@@ -476,6 +539,7 @@ class MirrorRB(StandardRB):
             QiskitError: If an unknown DD sequence in specified.
         """
         transpiled = super()._transpiled_circuits()
+        self._static_trans_circuits = transpiled
 
         if getattr(self.run_options, "dd", False) is False:
             return transpiled
