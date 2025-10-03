@@ -13,5 +13,10 @@ Classes
     McmRBAnalysis
 """
 
-
 from .mcm_rb_experiment import McmRB, McmRBAnalysis, SubDecayFit
+
+__all__ = [
+    McmRB,
+    McmRBAnalysis,
+    SubDecayFit,
+]
