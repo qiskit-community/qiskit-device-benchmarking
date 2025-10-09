@@ -272,13 +272,6 @@ class EdgeGrabSampler(BaseSampler):
     2. Select edges from :math:`E` with the probability :math:`w\xi/2|E|`. These
     edges will have two-qubit gates in the output layer.
 
-    If `matching=True`, step 1 above is replaced with
-
-    1. Perform a maximum weight matching :math:`E` of the graph defined by the
-    coupling map, using randomly chosen edges to acheive a random result.
-
-    |
-
     This produces a layer with an expected two-qubit gate density :math:`\xi`. In the
     default mirror RB configuration where these layers are dressed with single-qubit
     Pauli layers, this means the overall expected two-qubit gate density will be
@@ -452,9 +445,10 @@ class EdgeGrabSampler(BaseSampler):
                                 ),
                             ),
                         )
-                    # remove these qubits from put_1q_gates
-                    put_1q_gates.remove(edge[0])
-                    put_1q_gates.remove(edge[1])
+                    if not self._matching:
+                        # remove these qubits from put_1q_gates
+                        put_1q_gates.remove(edge[0])
+                        put_1q_gates.remove(edge[1])
             for q in put_1q_gates:
                 if sum(gateset[1][1]) > 0:
                     layer.append(
@@ -476,3 +470,37 @@ class EdgeGrabSampler(BaseSampler):
                         ),
                     )
             yield tuple(layer)
+
+class MatchingSampler(EdgeGrabSampler):
+    r"""A sampler that uses maximum weight matching for sampling gate layers.
+
+    Given a list of :math:`w` qubits, their connectivity graph, and the desired
+    two-qubit gate density :math:`\xi_s`, this algorithm outputs a layer as follows:
+
+    1. Perform a maximum weight matching :math:`E` of the graph defined by the
+    coupling map, using randomly chosen edges to acheive a random result.
+
+    2. Select edges from :math:`E` with the probability :math:`w\xi/2|E|`. These
+    edges will have two-qubit gates in the output layer.
+
+    3. Random single qubit gates are then assigned to all qubits.
+
+    This produces a layer with an expected two-qubit gate density :math:`\xi`. In the
+    default mirror RB configuration where these layers are dressed with single-qubit
+    Pauli layers, this means the overall expected two-qubit gate density will be
+    :math:`\xi_s/2=\xi`. The actual density will converge to :math:`\xi_s` as the
+    circuit size increases.
+
+    """
+    def __init__(
+        self,
+        gate_distribution=None,
+        coupling_map=None,
+        seed=None,
+    ):
+        super().__init__(
+            gate_distribution=gate_distribution,
+            coupling_map=coupling_map,
+            seed=seed,
+            matching=True
+        )
