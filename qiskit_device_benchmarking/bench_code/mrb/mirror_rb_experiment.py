@@ -58,6 +58,7 @@ from .mirror_rb_analysis import MirrorRBAnalysis
 from qiskit_device_benchmarking.utilities.clifford_utils import compute_target_bitstring
 from qiskit_device_benchmarking.utilities.sampling_utils import (
     EdgeGrabSampler,
+    MatchingSampler,
     SingleQubitSampler,
     GateInstruction,
     GateDistribution,
@@ -106,7 +107,7 @@ class MirrorRB(StandardRB):
 
     """
 
-    sampler_map = {"edge_grab": EdgeGrabSampler, "single_qubit": SingleQubitSampler}
+    sampler_map = {"edge_grab": EdgeGrabSampler, "matching": MatchingSampler, "single_qubit": SingleQubitSampler}
 
     # pylint: disable=dangerous-default-value
     def __init__(
@@ -243,10 +244,9 @@ class MirrorRB(StandardRB):
         based on experiment options. This method is currently implemented
         for the default "edge_grab" sampler."""
 
-        if self.experiment_options.sampling_algorithm != "edge_grab":
+        if self.experiment_options.sampling_algorithm not in ["edge_grab", "matching"]:
             raise QiskitError(
-                "Unsupported sampling algorithm provided. You must implement"
-                "a custom `_set_distribution_options` method."
+                "Unsupported sampling algorithm provided."
             )
 
         self._distribution.seed = self.experiment_options.seed
@@ -268,7 +268,8 @@ class MirrorRB(StandardRB):
             adjusted_2q_density = self.experiment_options.two_qubit_gate_density
 
         if adjusted_2q_density > 1:
-            warnings.warn("Two-qubit gate density is too high, capping at 1.")
+            if self.experiment_options.two_qubit_gate_density > 1:
+                warnings.warn("Two-qubit gate density is too high, capping at 1.")
             adjusted_2q_density = 1
 
         self._distribution.gate_distribution = [
@@ -499,7 +500,8 @@ class MirrorRB(StandardRB):
         self, layer: List[Tuple[GateInstruction, ...]]
     ) -> List[Tuple[GateInstruction, ...]]:
         """Generates the inverse layer of a Clifford mirror RB layer by inverting the
-        single-qubit Cliffords and keeping the two-qubit gate identical. See
+        single-qubit Cliffords and keeping the two-qubit gate identical. If the layer
+        contains both, it is assumed that two-qubit gates come first. See
         :class:`.BaseSampler` for the format of the layer.
 
         Args:
@@ -512,12 +514,13 @@ class MirrorRB(StandardRB):
             QiskitError: If the layer has invalid format.
         """
         inverse_layer = []
-        for elem in layer:
+        for elem in layer: # first single qubit
             if len(elem.qargs) == 1 and np.issubdtype(type(elem.op), int):
                 inverse_layer.append(GateInstruction(elem.qargs, inverse_1q(elem.op)))
-            elif len(elem.qargs) == 2 and elem.op in _self_adjoint_gates:
+        for elem in layer: # then two qubit qubit
+            if len(elem.qargs) == 2 and elem.op in _self_adjoint_gates:
                 inverse_layer.append(elem)
-            else:
+            elif not (len(elem.qargs) == 1 and np.issubdtype(type(elem.op), int)):
                 try:
                     inverse_layer.append(GateInstruction(elem.qargs, elem.op.inverse()))
                 except TypeError as exc:
