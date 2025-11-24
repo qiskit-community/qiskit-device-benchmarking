@@ -23,8 +23,7 @@ on some of our devices.
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit_device_benchmarking.clops.clops_benchmark import clops_benchmark
 
-service = QiskitRuntimeService(channel="ibm_quantum",
-                               instance="your-hub/group/project")
+service = QiskitRuntimeService()
 
 # Run clops with default settings (twirled circuits, 1000 circuits in run,
 # 100 wide by 100 layers, etc)  Note this is done in a session and currently
