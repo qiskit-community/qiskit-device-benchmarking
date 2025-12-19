@@ -6,9 +6,6 @@ evolution of a 1D Ising chain as the test circuit, but with the circuit mirrored
 its effective action is equivalent to the identity. This makes it trivial to detect
 whether the returned expectation values are accurate.
 
-Note that with its default settings -- at the time of this writing -- executing this
-benchmark requires 8-9 hours of wall clock time, and about 2.5 hours of QPU time.
-
 ## Usage example
 
 ```python
@@ -20,7 +17,7 @@ service = QiskitRuntimeService(channel="ibm_quantum",
 
 backend = service.backend("your-favorite-ibm-quantum-computer")
 
-job = submit_mirror_test(backend, num_qubits=100, num_gates=2500)
+job = submit_mirror_test(backend, num_qubits=100, num_gates=5000)
 
 # wait for job to complete execution, then...
 result = job.result()
