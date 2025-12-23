@@ -24,11 +24,10 @@ import qiskit_device_benchmarking.utilities.graph_utils as gu
 from qiskit_device_benchmarking.bench_code.bell import CHSHExperiment
 
 
-def run_count(hgp, backends, nshots=100, act_name=""):
+def run_count(backends, nshots=100, act_name=""):
     """Run a chsh inequality on a number of devices
 
     Args:
-        hgp: hub/group/project
         backends: list of backends
         nshots: number of shots
         act_name: account name to be passed to the runtime service
@@ -41,7 +40,7 @@ def run_count(hgp, backends, nshots=100, act_name=""):
     service = QiskitRuntimeService(name=act_name)
     job_list = []
     result_dict = {}
-    result_dict["config"] = {"hgp": hgp, "nshots": nshots, "act_name": act_name}
+    result_dict["config"] = {"nshots": nshots, "act_name": act_name}
 
     print("Running Fast Count with options %s" % result_dict["config"])
 
@@ -49,7 +48,7 @@ def run_count(hgp, backends, nshots=100, act_name=""):
     for backend in backends:
         print("Loading backend %s" % backend)
         result_dict[backend] = {}
-        backend_real = service.backend(backend, instance=hgp)
+        backend_real = service.backend(backend)
         chsh_exp_list_b = []
 
         # compute the sets for this
@@ -172,7 +171,6 @@ if __name__ == "__main__":
         help="specify backend group in config file",
         default="backends",
     )
-    parser.add_argument("--hgp", help="specify hgp")
     parser.add_argument("--shots", help="specify number of shots")
     parser.add_argument("--name", help="Account name", default="")
     args = parser.parse_args()
@@ -188,11 +186,6 @@ if __name__ == "__main__":
     else:
         backends = config_dict[args.backend_group]
 
-    if args.hgp is not None:
-        hgp = args.hgp
-    else:
-        hgp = config_dict["hgp"]
-
     if args.shots is not None:
         nshots = int(args.shots)
     else:
@@ -200,4 +193,4 @@ if __name__ == "__main__":
 
     # print(hgp, backends, he, opt_level, dd, depths, trials, nshots)
 
-    run_count(hgp, backends, nshots=nshots, act_name=args.name)
+    run_count(backends, nshots=nshots, act_name=args.name)

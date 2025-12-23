@@ -32,8 +32,32 @@ from qiskit.circuit import Gate
 xslow = Gate(name="xslow", num_qubits=1, params=[])
 
 
+def get_sets(nq, backend_nq):
+    """Get a fixed set of qubits to run the mirror test on
+
+    Args:
+        nq: number of qubits in the set
+        backend_nq: number of qubits in the backend (use to differentiate between backends)
+
+    Returns:
+        flat list of lists of qubit chains
+    """
+
+    # import from a yaml
+    try:
+        fixed_sets = fu.import_yaml("fixed_benchsets.yaml")
+    except FileNotFoundError:
+        return None
+
+    if backend_nq in fixed_sets:
+        if nq in fixed_sets[backend_nq]:
+            return fixed_sets[backend_nq][nq]
+
+    else:
+        return None
+
+
 def run_bench(
-    hgp,
     backends,
     depths=[8],
     trials=10,
@@ -46,7 +70,6 @@ def run_bench(
     """Run a benchmarking test (mirror QV) on a set of devices
 
     Args:
-        hgp: hub/group/project
         backends: list of backends
         depths: list of mirror depths (square circuits)
         trials: number of randomizations
@@ -58,7 +81,7 @@ def run_bench(
         act_name: account name to be passed to the runtime service
 
     Returns:
-        flat list of lists of qubit chains
+        Writes the results to a file of the form MQV_<timestamp>.yaml
     """
 
     warnings.filterwarnings(
@@ -70,7 +93,6 @@ def run_bench(
     job_list = []
     result_dict = {}
     result_dict["config"] = {
-        "hgp": hgp,
         "depths": depths,
         "trials": trials,
         "nshots": nshots,
@@ -87,29 +109,32 @@ def run_bench(
     for backend in backends:
         print("Loading backend %s" % backend)
         result_dict[backend] = {}
-        backend_real = service.backend(backend, instance=hgp)
+        backend_real = service.backend(backend)
         mqv_exp_list_d = []
         for depth in depths:
             print("Generating Depth %d Circuits for Backend %s" % (depth, backend))
 
             result_dict[backend][depth] = {}
 
-            # compute the sets for this
-            # NOTE: I want to replace this with fixed sets from
-            # a config file!!!
             nq = backend_real.configuration().n_qubits
             coupling_map = backend_real.configuration().coupling_map
-            G = gu.build_sys_graph(nq, coupling_map)
-            paths = rx.all_pairs_all_simple_paths(G, depth, depth)
-            paths = gu.paths_flatten(paths)
-            new_sets = gu.get_separated_sets(G, paths, min_sep=2, nsets=1)
+            new_sets = get_sets(depth, nq)
+
+            if new_sets is None:
+                print("Fixed sets not found, trying to calculate sets")
+                G = gu.build_sys_graph(nq, coupling_map)
+                paths = rx.all_pairs_all_simple_paths(G, depth, depth)
+                paths = gu.paths_flatten(paths)
+                new_sets = gu.get_separated_sets(G, paths, min_sep=2, nsets=1)[0]
+            else:
+                print("Sets found in yaml")
 
             mqv_exp_list = []
 
-            result_dict[backend][depth]["sets"] = new_sets[0]
+            result_dict[backend][depth]["sets"] = new_sets
 
             # Construct mirror QV circuits on each parallel set
-            for qset in new_sets[0]:
+            for qset in new_sets:
                 # generate the circuits
                 mqv_exp = MirrorQuantumVolume(
                     qubits=qset,
@@ -220,7 +245,6 @@ if __name__ == "__main__":
         help="specify backend group in config file",
         default="backends",
     )
-    parser.add_argument("--hgp", help="specify hgp")
     parser.add_argument("--he", help="Hardware efficient", action="store_true")
     parser.add_argument("--name", help="Account name", default="")
     args = parser.parse_args()
@@ -236,11 +260,6 @@ if __name__ == "__main__":
     else:
         backends = config_dict[args.backend_group]
 
-    if args.hgp is not None:
-        hgp = args.hgp
-    else:
-        hgp = config_dict["hgp"]
-
     if args.he is True:
         he = True
     else:
@@ -255,7 +274,6 @@ if __name__ == "__main__":
     # print(hgp, backends, he, opt_level, dd, depths, trials, nshots)
 
     run_bench(
-        hgp,
         backends,
         depths=depths,
         trials=trials,

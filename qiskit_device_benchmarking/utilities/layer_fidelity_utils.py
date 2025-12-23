@@ -1115,8 +1115,11 @@ def get_grids(
                 153,
             ],
         ]
+    elif backend.num_qubits == 120:
+        horz_chain = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], [20, 21, 22, 23, 24, 25, 26, 27, 28, 29], [30, 31, 32, 33, 34, 35, 36, 37, 38, 39], [40, 41, 42, 43, 44, 45, 46, 47, 48, 49], [50, 51, 52, 53, 54, 55, 56, 57, 58, 59], [60, 61, 62, 63, 64, 65, 66, 67, 68, 69], [70, 71, 72, 73, 74, 75, 76, 77, 78, 79], [80, 81, 82, 83, 84, 85, 86, 87, 88, 89], [90, 91, 92, 93, 94, 95, 96, 97, 98, 99], [100, 101, 102, 103, 104, 105, 106, 107, 108, 109], [110, 111, 112, 113, 114, 115, 116, 117, 118, 119]]
+        vert_chain = [[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110], [1, 11, 21, 31, 41, 51, 61, 71, 81, 91, 101, 111], [2, 12, 22, 32, 42, 52, 62, 72, 82, 92, 102, 112], [3, 13, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113], [4, 14, 24, 34, 44, 54, 64, 74, 84, 94, 104, 114], [5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115], [6, 16, 26, 36, 46, 56, 66, 76, 86, 96, 106, 116], [7, 17, 27, 37, 47, 57, 67, 77, 87, 97, 107, 117], [8, 18, 28, 38, 48, 58, 68, 78, 88, 98, 108, 118], [9, 19, 29, 39, 49, 59, 69, 79, 89, 99, 109, 119]]
     else:
-        raise ValueError("No grids defined for qubit number %d" % backend.nqubits)
+        raise ValueError("No grids defined for qubit number %d" % backend.num_qubits)
 
     grid_chains = [horz_chain, vert_chain]
 
@@ -1265,8 +1268,8 @@ def best_chain(
         If this is set to, e.g., 0.99, then it will heuristically restrict the paths
         and the time will shorter but not guaranteed to find the best path
     Returns:
-        chains: chains found (sorted best to worst)
-        fids: fidelity of chains found (sorted best to worst)
+        chains: chains found (sorted lowest to best fidelity)
+        fids: fidelity of chains found (sorted lowest to best)
     """
 
     best_fid = [best_fid_guess]
