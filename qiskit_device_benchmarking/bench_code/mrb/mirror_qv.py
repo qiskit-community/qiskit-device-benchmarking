@@ -150,6 +150,7 @@ class MirrorQuantumVolume(BaseExperiment):
         warnings.filterwarnings("ignore", message=".*PulseDefaults.*", category=DeprecationWarning)
         warnings.filterwarnings("ignore", message=".*qiskit.dagcircuit.dagcircuit.DAGCircuit.*", category=DeprecationWarning)
         warnings.filterwarnings("ignore", message=".*IBMFractionalTranslationPlugin.*", category=DeprecationWarning)
+        warnings.filterwarnings("ignore", message=".*IBMDynamicFractionalTranslationPlugin.*", category=DeprecationWarning)
 
         # run transpiler first
         self._transpiled_circuits()

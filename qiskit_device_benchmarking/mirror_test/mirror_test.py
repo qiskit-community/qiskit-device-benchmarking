@@ -141,7 +141,7 @@ def analyze_mirror_result(
     print(f"Mean error: {mean_error}")
 
     # find fraction within the accuracy threshold of the ideal value
-    fraction = np.argmax(ev_errors > accuracy_threshold) / N
+    fraction = np.sum(ev_errors <= accuracy_threshold) / N
     print(
         f"Fraction within {int(accuracy_threshold * 100)}% of ideal value: {fraction}"
     )
