@@ -28,10 +28,13 @@ from .mirror_qv import MirrorQuantumVolume
 from .mirror_qv_analysis import MirrorQuantumVolumeAnalysis
 from .mirror_rb_experiment import MirrorRB
 from .mirror_rb_analysis import MirrorRBAnalysis
+from .mirror_qa import MirrorQA, QuantumAwesomeness
 
 __all__ = [
     MirrorQuantumVolume,
     MirrorQuantumVolumeAnalysis,
     MirrorRB,
     MirrorRBAnalysis,
+    MirrorQA,
+    QuantumAwesomeness
 ]
