@@ -78,6 +78,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--plot", help="Generate a plot", action="store_true")
     parser.add_argument("--degree", help="Add degree to the plot", action="store_true")
+    parser.add_argument("--edges", help="Print out failed edges", action="store_true")
     args = parser.parse_args()
 
     # import from results files and concatenate into a larger results
@@ -116,6 +117,14 @@ if __name__ == "__main__":
             "Backend %s, Largest Connected Region: %d" % (backend, count_data[backend])
         )
         print("Backend %s, Average Degree: %f" % (backend, degree_data[backend]))
+
+        if args.edges:
+            for edge in results_dict[backend]["chsh_values"]:
+                if results_dict[backend]["chsh_values"][edge] < 2:
+                    print(
+                        "Failed Edge %s with value %f"
+                        % (edge, results_dict[backend]["chsh_values"][edge])
+                    )
 
     if args.plot:
         generate_plot(count_data, degree_data, args)
