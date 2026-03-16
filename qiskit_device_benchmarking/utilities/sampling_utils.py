@@ -20,6 +20,7 @@ from typing import Optional, Union, List, Tuple, Sequence, NamedTuple, Dict, Ite
 from collections import defaultdict
 from numpy.random import Generator, default_rng, BitGenerator, SeedSequence
 import numpy as np
+import networkx as nx
 
 from qiskit.circuit import Instruction
 from qiskit.circuit.gate import Gate
@@ -271,8 +272,6 @@ class EdgeGrabSampler(BaseSampler):
     2. Select edges from :math:`E` with the probability :math:`w\xi/2|E|`. These
     edges will have two-qubit gates in the output layer.
 
-    |
-
     This produces a layer with an expected two-qubit gate density :math:`\xi`. In the
     default mirror RB configuration where these layers are dressed with single-qubit
     Pauli layers, this means the overall expected two-qubit gate density will be
@@ -314,6 +313,7 @@ class EdgeGrabSampler(BaseSampler):
         gate_distribution=None,
         coupling_map: Optional[Union[List[List[int]], CouplingMap]] = None,
         seed: Optional[Union[int, SeedSequence, BitGenerator, Generator]] = None,
+        matching=False
     ) -> None:
         """Initializes the sampler.
 
@@ -325,6 +325,7 @@ class EdgeGrabSampler(BaseSampler):
         super().__init__(seed)
         self._gate_distribution = gate_distribution
         self.coupling_map = coupling_map
+        self._matching = matching
 
     @property
     def coupling_map(self) -> CouplingMap:
@@ -383,17 +384,30 @@ class EdgeGrabSampler(BaseSampler):
                 :
             ]  # make copy of coupling map from which we pop edges
             selected_edges = []
-            while all_edges:
-                rand_edge = all_edges.pop(self._rng.integers(len(all_edges)))
-                selected_edges.append(
-                    rand_edge
-                )  # move random edge from all_edges to selected_edges
-                old_all_edges = all_edges[:]
-                all_edges = []
-                # only keep edges in all_edges that do not share a vertex with rand_edge
-                for edge in old_all_edges:
-                    if rand_edge[0] not in edge and rand_edge[1] not in edge:
-                        all_edges.append(edge)
+            if not self._matching:
+                while all_edges:
+                    rand_edge = all_edges.pop(self._rng.integers(len(all_edges)))
+                    selected_edges.append(
+                        rand_edge
+                    )  # move random edge from all_edges to selected_edges
+                    old_all_edges = all_edges[:]
+                    all_edges = []
+                    # only keep edges in all_edges that do not share a vertex with rand_edge
+                    for edge in old_all_edges:
+                        if rand_edge[0] not in edge and rand_edge[1] not in edge:
+                            all_edges.append(edge)
+            else:
+                G = nx.Graph()
+                edges = self.coupling_map.get_edges()
+                for u, v in edges:
+                    w = self._rng.integers(1, 100)
+                    G.add_edge(u, v, weight=w)
+                matching = nx.algorithms.matching.max_weight_matching(G, maxcardinality=True)
+                for edge in matching:
+                    if edge in edges:
+                        selected_edges.append(edge)
+                    else:
+                        selected_edges.append(edge[::-1])
 
             two_qubit_prob = 0
             try:
@@ -431,9 +445,10 @@ class EdgeGrabSampler(BaseSampler):
                                 ),
                             ),
                         )
-                    # remove these qubits from put_1q_gates
-                    put_1q_gates.remove(edge[0])
-                    put_1q_gates.remove(edge[1])
+                    if not self._matching:
+                        # remove these qubits from put_1q_gates
+                        put_1q_gates.remove(edge[0])
+                        put_1q_gates.remove(edge[1])
             for q in put_1q_gates:
                 if sum(gateset[1][1]) > 0:
                     layer.append(
@@ -455,3 +470,37 @@ class EdgeGrabSampler(BaseSampler):
                         ),
                     )
             yield tuple(layer)
+
+class MatchingSampler(EdgeGrabSampler):
+    r"""A sampler that uses maximum weight matching for sampling gate layers.
+
+    Given a list of :math:`w` qubits, their connectivity graph, and the desired
+    two-qubit gate density :math:`\xi_s`, this algorithm outputs a layer as follows:
+
+    1. Perform a maximum weight matching :math:`E` of the graph defined by the
+    coupling map, using randomly chosen edges to acheive a random result.
+
+    2. Select edges from :math:`E` with the probability :math:`w\xi/2|E|`. These
+    edges will have two-qubit gates in the output layer.
+
+    3. Random single qubit gates are then assigned to all qubits.
+
+    This produces a layer with an expected two-qubit gate density :math:`\xi`. In the
+    default mirror RB configuration where these layers are dressed with single-qubit
+    Pauli layers, this means the overall expected two-qubit gate density will be
+    :math:`\xi_s/2=\xi`. The actual density will converge to :math:`\xi_s` as the
+    circuit size increases.
+
+    """
+    def __init__(
+        self,
+        gate_distribution=None,
+        coupling_map=None,
+        seed=None,
+    ):
+        super().__init__(
+            gate_distribution=gate_distribution,
+            coupling_map=coupling_map,
+            seed=seed,
+            matching=True
+        )
