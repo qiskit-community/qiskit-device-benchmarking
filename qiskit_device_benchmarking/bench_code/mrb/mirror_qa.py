@@ -76,9 +76,7 @@ class MirrorQA(MirrorRB):
         lengths: Iterable[int],
         pauli_randomize: bool = True,
         sampling_algorithm: str = "edge_grab",
-        start_end_clifford = False,
         two_qubit_gate_density: float = 0.25,
-        two_qubit_gate: Instruction = CXGate(),
         num_samples: int = 3,
         sampler_opts: Optional[dict] = {},
         backend: Optional[Backend] = None,
@@ -86,7 +84,6 @@ class MirrorQA(MirrorRB):
         inverting_pauli_layer: bool = False,
         initial_entangling_angle: float = pi/2,
         final_entangling_angle: float = 0,
-        analyzed_quantity: str = "Effective Polarization",
     ):
         """Initialize a mirror quantum awesomeness experiment.
 
@@ -95,8 +92,6 @@ class MirrorQA(MirrorRB):
             lengths: A list of RB sequences lengths.
             sampling_algorithm: The sampling algorithm to use for generating
                 circuit layers. Defaults to "edge_grab" which uses :class:`.EdgeGrabSampler`.
-            start_end_clifford: If True, begin the circuit with uniformly random 1-qubit
-                Cliffords and end the circuit with their inverses.
             pauli_randomize: If True, surround each sampled circuit layer with layers of
                 uniformly random 1-qubit Paulis.
             two_qubit_gate_density: Expected proportion of qubit sites with two-qubit
@@ -129,14 +124,13 @@ class MirrorQA(MirrorRB):
             backend=backend,
             pauli_randomize=pauli_randomize,
             sampling_algorithm=sampling_algorithm,
-            start_end_clifford=start_end_clifford,
+            start_end_clifford=False,
             two_qubit_gate_density=two_qubit_gate_density,
             num_samples=num_samples,
             sampler_opts=sampler_opts,
             seed=seed,
             inverting_pauli_layer=inverting_pauli_layer,
             full_sampling=False,
-            start_end_clifford=False,
             initial_entangling_angle = initial_entangling_angle,
             final_entangling_angle = final_entangling_angle,
         )
