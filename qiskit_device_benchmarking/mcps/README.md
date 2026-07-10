@@ -14,7 +14,9 @@ device.
 
 To measure sustained throughput rather than transient performance, the benchmark
 replicates the circuit 1000 times with 1000 shots per circuit in a single job,
-minimizing control electronics overhead and amortizing any per-job latency.
+minimizing control electronics overhead and amortizing any per-circuit latency.
+Timing of the benchmark is at the QPU level, actual circuit execution time, 
+and does not consider system overheads above the device level.
 
 ## Example
 
