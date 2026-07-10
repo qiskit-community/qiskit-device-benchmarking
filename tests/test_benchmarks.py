@@ -2,12 +2,13 @@ import pytest
 
 from qiskit.providers.jobstatus import JobStatus
 from qiskit_experiments.framework import AnalysisStatus
-from qiskit_ibm_runtime.fake_provider import FakeFez
+from qiskit_ibm_runtime.fake_provider import FakeFez, FakePerth
 
 from qiskit_device_benchmarking.clops.clops_benchmark import (
     create_hardware_aware_circuit,
 )
 from qiskit_device_benchmarking.bench_code.bell import CHSHExperiment
+from qiskit_device_benchmarking.mcps.mcps_benchmark import create_mcps_circuit, run_mcps_sampler
 
 # from qiskit_device_benchmarking.bench_code.dynamic_circuits_rb import DynamicCircuitsRB
 # from qiskit_device_benchmarking.bench_code.mcm_rb_experiment import McmRB
@@ -128,3 +129,25 @@ def test_purity_rb(backend):
     assert alpha.value
     assert EPC.value
     assert EPG_cz.value
+
+
+def test_mcps_circuit():
+    """Verify the MCPS circuit has H on every qubit followed by measurements."""
+    small_backend = FakePerth()
+    qc = create_mcps_circuit(small_backend)
+    gate_ops = [
+        inst.operation.name
+        for inst in qc.data
+        if inst.operation.name not in ("measure", "barrier")
+    ]
+    assert qc.num_qubits == small_backend.num_qubits
+    assert set(gate_ops) <= {"h", "rz", "sx", "x"}  # H or its hardware decomposition
+    assert len(gate_ops) >= small_backend.num_qubits  # at least one gate per qubit
+
+
+def test_mcps_sampler():
+    """Run a small MCPS job via the Sampler path and verify it completes."""
+    small_backend = FakePerth()
+    job = run_mcps_sampler(small_backend, num_circuits=5, shots=10)
+    result = job.result()
+    assert len(result) == 5
