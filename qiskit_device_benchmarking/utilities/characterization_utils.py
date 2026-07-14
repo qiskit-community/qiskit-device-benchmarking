@@ -75,6 +75,18 @@ class BackendCharacterization:
         """Return a dictionary of jobs. Keys are experiment names, values are lists of jobs."""
         return self._jobs
 
+    @property
+    def experiment_data(self) -> dict:
+        """Return the underlying experiment data, keyed by experiment name.
+
+        Values are :class:`~qiskit_experiments.framework.ExperimentData` objects
+        that can be used to inspect fit results and figures of the individual
+        experiments, with two exceptions: "readout" maps to the raw Sampler job,
+        and "rb_2q" maps to a dict with the horizontal/vertical LayerFidelity
+        experiment data under "lf_h"/"lf_v" and the 2Q gate layers under "layers".
+        """
+        return self._experiments
+
     def run_and_update(
         self,
         experiments: Optional[Iterable[SupportedExperiments]] = None,
@@ -103,7 +115,7 @@ class BackendCharacterization:
 
             shots: Optional dict overriding shots, keys in {"readout","rb_1q","rb_2q","t1","t2"}.
                 If None, default shots are used for each experiment:
-                readout=10000, rb_1q=250, rb_2q=250, t1=250, t2=250
+                readout=10000, rb_1q=250, rb_2q=250, t1=300, t2=300
         Raises:
             ValueError: if an unknown experiment is requested.
         """
@@ -142,7 +154,7 @@ class BackendCharacterization:
 
             shots: Optional dict overriding shots, keys in {"readout","rb_1q","rb_2q","t1","t2"}.
                 If None, default shots are used for each experiment:
-                readout=10000, rb_1q=250, rb_2q=250, t1=250, t2=250
+                readout=10000, rb_1q=250, rb_2q=250, t1=300, t2=300
 
         Raises:
             ValueError: if an unknown experiment is requested.
@@ -300,7 +312,8 @@ class BackendCharacterization:
         """Update backend with the experiment results.
 
         Returns:
-            IBMBackend: _description_
+            A copy of the backend whose properties are updated with the
+            measured values from :meth:`analyze_results`.
         """
         # ---- Update backend properties ----
         backend = copy.deepcopy(self.backend)
@@ -530,7 +543,7 @@ class BackendCharacterization:
         lf_result_v_df: DataFrame,
         layers: List[List[Tuple[int, int]]],
     ) -> Dict[str, float]:
-        """Extract 2Q errors from layer fidelity experiments (horiztonal and vertical) and return a
+        """Extract 2Q errors from layer fidelity experiments (horizontal and vertical) and return a
         corresponding error dictionary."""
         twoq_gate = self._get_twoq_gate()
         lf_err_dict = lfu.make_error_dict(self.backend, twoq_gate)
@@ -600,19 +613,28 @@ def plot_characterization_comparison(
     plots: Iterable[str],
     title_prefix=None,
     log_scale: Optional[Dict[str, bool]] = None,
+    ylim: Optional[Dict[str, Tuple[float, float]]] = None,
 ):
     """
     Plot measured vs reported comparisons for selected characterization results.
 
     plots:
-      "readout", "rb_1q_sx", "rb_1q_x", "rb_2q", "t1", "t2"
+      "readout", "rb_1q", "rb_2q", "t1", "t2"
+
+    The "rb_1q" plot shows a single EPG curve since the same 1Q RB error is
+    assigned to both the x and sx gates.
+
+    ylim:
+      Optional {plot_name: (bottom, top)} axis limits. By default limits are
+      chosen from the bulk of the data so that a few extreme outliers do not
+      compress the rest of the plot; points falling outside the limits are
+      counted in an annotation on the plot.
     """
     prefix = (title_prefix + " – ") if title_prefix else ""
 
     use_log = {
         "readout": False,
-        "rb_1q_sx": True,
-        "rb_1q_x": True,
+        "rb_1q": True,
         "rb_2q": True,
         "t1": True,
         "t2": True,
@@ -620,6 +642,7 @@ def plot_characterization_comparison(
     if log_scale:
         use_log.update(log_scale)
 
+    default_labels = ("Reported", "Measured real-time")
     plot_configs = {
         "readout": {
             "extract": lambda props: _extract_qubit_property(props, "readout_error"),
@@ -629,35 +652,28 @@ def plot_characterization_comparison(
             "figsize": (18, 5.5),
             "labels": lambda keys: [str(k) for k in keys],
         },
-        "rb_1q_sx": {
+        "rb_1q": {
             "extract": _extract_1q_sx_errors,
-            "title": "1Q RB EPG (sx) — measured vs reported",
+            "title": "1Q RB EPG — measured vs reported (same error assigned to x and sx)",
             "xlabel": "Qubit",
-            "ylabel": "EPG (sx)",
-            "figsize": (18, 5.5),
-            "labels": lambda keys: [str(k) for k in keys],
-        },
-        "rb_1q_x": {
-            "extract": _extract_1q_x_errors,
-            "title": "1Q RB EPG (x) — measured vs reported",
-            "xlabel": "Qubit",
-            "ylabel": "EPG (x)",
+            "ylabel": "EPG (x, sx)",
             "figsize": (18, 5.5),
             "labels": lambda keys: [str(k) for k in keys],
         },
         "rb_2q": {
             "extract": _extract_twoq_gate_errors,
-            "title": "Layered 2Q RB EPG — measured vs reported",
+            "title": "2Q EPG — measured layered errors vs isolated errors reported by the backend",
             "xlabel": "2Q gate",
             "ylabel": "EPG (2Q)",
             "figsize": (22, 6.5),
             "labels": lambda keys: [f"{i}-{j}" for (i, j) in keys],
+            "legend": ("Reported (isolated 2Q)", "Measured real-time (layered 2Q RB)"),
         },
         "t1": {
             "extract": lambda props: _extract_qubit_property(props, "T1"),
             "title": "T1 — measured vs reported",
             "xlabel": "Qubit",
-            "ylabel": "T1 (s)",
+            "ylabel": "T1 (us)",
             "figsize": (18, 5.5),
             "labels": lambda keys: [str(k) for k in keys],
         },
@@ -665,16 +681,15 @@ def plot_characterization_comparison(
             "extract": lambda props: _extract_qubit_property(props, "T2"),
             "title": "T2 (Hahn) — measured vs reported",
             "xlabel": "Qubit",
-            "ylabel": "T2 (s)",
+            "ylabel": "T2 (us)",
             "figsize": (18, 5.5),
             "labels": lambda keys: [str(k) for k in keys],
         },
     }
 
-    if 'rb_1q' in plots:
-        plots.append('rb_1q_x')
-        plots.append('rb_1q_sx')
-        plots.remove('rb_1q')
+    # The same 1Q RB error is assigned to x and sx, so both map to a single plot.
+    plots = ["rb_1q" if p in ("rb_1q_x", "rb_1q_sx") else p for p in plots]
+    plots = list(dict.fromkeys(plots))
 
     for name in plots:
         config = plot_configs[name]
@@ -692,13 +707,31 @@ def plot_characterization_comparison(
 
         fig, ax = plt.subplots(figsize=config["figsize"])
         ax.set_title(f"{prefix}{config['title']} (sorted by measured)")
-        _plot_lines(ax, x, y_old, y_new, lw=1.1, ms=3.0)
+        label_old, label_new = config.get("legend", default_labels)
+        _plot_lines(ax, x, y_old, y_new, lw=1.1, ms=3.0,
+                    label_old=label_old, label_new=label_new)
 
         ax.set_xlabel(config["xlabel"])
         ax.set_ylabel(config["ylabel"])
 
         if use_log[name]:
             ax.set_yscale("log")
+
+        limits = (ylim or {}).get(name)
+        if limits is None:
+            limits = _robust_ylim(y_old + y_new, log=use_log[name])
+        if limits is not None:
+            ax.set_ylim(*limits)
+            n_clipped = sum(
+                1 for v in y_old + y_new
+                if np.isfinite(v) and not (limits[0] <= v <= limits[1])
+            )
+            if n_clipped:
+                ax.annotate(
+                    f"{n_clipped} outlier point(s) outside axis range",
+                    xy=(0.99, 0.02), xycoords="axes fraction",
+                    ha="right", va="bottom", fontsize=8, color="gray",
+                )
 
         _set_every_xtick_with_vertical_guides(
             ax,
@@ -815,6 +848,33 @@ def _set_every_xtick_with_vertical_guides(ax, labels, *, rotation=90, fontsize=7
     fig.subplots_adjust(bottom=0.28 if rotation == 90 else 0.20)
 
 
-def _plot_lines(ax, x_idx, y_old, y_new, *, lw=1.1, ms=3.0):
-    ax.plot(x_idx, y_old, color="darkorange", marker="o", linewidth=lw, markersize=ms, label="Reported")
-    ax.plot(x_idx, y_new, color="royalblue", marker="o", linewidth=lw, markersize=ms, label="Measured real-time")
+def _plot_lines(ax, x_idx, y_old, y_new, *, lw=1.1, ms=3.0,
+                label_old="Reported", label_new="Measured real-time"):
+    ax.plot(x_idx, y_old, color="darkorange", marker="o", linewidth=lw, markersize=ms, label=label_old)
+    ax.plot(x_idx, y_new, color="royalblue", marker="o", linewidth=lw, markersize=ms, label=label_new)
+
+
+def _robust_ylim(values, *, log=False, iqr_factor=3.0):
+    """Compute y-axis limits covering the bulk of the data.
+
+    Extreme outliers (points beyond ``iqr_factor`` interquartile ranges from
+    the quartiles, e.g. an unreasonably low T2 fit) are excluded when choosing
+    the limits so they do not compress the rest of the plot. For log-scale
+    plots the fences are computed in log space. Returns None if there are too
+    few points to estimate limits robustly.
+    """
+    vals = np.asarray([v for v in values if v is not None and np.isfinite(v)], dtype=float)
+    if log:
+        vals = vals[vals > 0]
+    if vals.size < 10:
+        return None
+    vals_t = np.log10(vals) if log else vals
+    q1, q3 = np.percentile(vals_t, [25, 75])
+    iqr = q3 - q1
+    inliers = vals_t[(vals_t >= q1 - iqr_factor * iqr) & (vals_t <= q3 + iqr_factor * iqr)]
+    lo, hi = inliers.min(), inliers.max()
+    margin = 0.05 * ((hi - lo) or abs(hi) or 1.0)
+    lo, hi = lo - margin, hi + margin
+    if log:
+        return 10**lo, 10**hi
+    return lo, hi
