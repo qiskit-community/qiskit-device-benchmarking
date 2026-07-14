@@ -91,6 +91,7 @@ class BackendCharacterization:
         self,
         experiments: Optional[Iterable[SupportedExperiments]] = None,
         shots: Optional[Dict[str, int]] = None,
+        t2_num_echoes: int = 1,
     ) -> IBMBackend:
         """Run selected characterization experiments on the given IBM Quantum backend and update its properties.
 
@@ -116,12 +117,18 @@ class BackendCharacterization:
             shots: Optional dict overriding shots, keys in {"readout","rb_1q","rb_2q","t1","t2"}.
                 If None, default shots are used for each experiment:
                 readout=10000, rb_1q=250, rb_2q=250, t1=300, t2=300
+
+            t2_num_echoes: Number of echo (pi pulse) blocks in the T2 experiment. The
+                default of 1 is a standard single-echo Hahn measurement; larger values
+                give a CPMG-style dynamical-decoupling train. The delays are the total
+                free-evolution time in either case, so results remain comparable.
         Raises:
             ValueError: if an unknown experiment is requested.
         """
         self.run_experiments(
             experiments=experiments,
-            shots=shots
+            shots=shots,
+            t2_num_echoes=t2_num_echoes,
         )
         self.analyze_results()
         return self.update_backend()
@@ -130,6 +137,7 @@ class BackendCharacterization:
         self,
         experiments: Optional[Iterable[SupportedExperiments]] = None,
         shots: Optional[Dict[str, int]] = None,
+        t2_num_echoes: int = 1,
     ) -> dict:
         """Run selected characterization experiments.
 
@@ -155,6 +163,11 @@ class BackendCharacterization:
             shots: Optional dict overriding shots, keys in {"readout","rb_1q","rb_2q","t1","t2"}.
                 If None, default shots are used for each experiment:
                 readout=10000, rb_1q=250, rb_2q=250, t1=300, t2=300
+
+            t2_num_echoes: Number of echo (pi pulse) blocks in the T2 experiment. The
+                default of 1 is a standard single-echo Hahn measurement; larger values
+                give a CPMG-style dynamical-decoupling train. The delays are the total
+                free-evolution time in either case, so results remain comparable.
 
         Raises:
             ValueError: if an unknown experiment is requested.
@@ -223,7 +236,7 @@ class BackendCharacterization:
         t2_exp: Optional[ParallelExperiment] = None
         if EXPERIMENT_T2 in chosen:
             logger.info("Building T2 experiments")
-            t2_exp = self._build_t2_experiments(delays=t2_delays)
+            t2_exp = self._build_t2_experiments(delays=t2_delays, num_echoes=t2_num_echoes)
 
         # ---- Run and collect results ----
         if lf_h and lf_v:
@@ -477,14 +490,20 @@ class BackendCharacterization:
     def _build_t2_experiments(
         self,
         delays: List[float],
+        num_echoes: int = 1,
     ) -> ParallelExperiment:
-        """Create T2-Hahn experiments on all qubits in parallel."""
+        """Create T2-Hahn experiments on all qubits in parallel.
+
+        num_echoes > 1 gives a CPMG-style dynamical-decoupling train; delays are
+        the total free-evolution time regardless of the number of echoes.
+        """
         qubits = list(range(self.backend.num_qubits))
         t2_exp = ParallelExperiment(
             [
                 T2Hahn(
                     physical_qubits=[q],
                     delays=delays,
+                    num_echoes=num_echoes,
                 )
                 for q in qubits
             ],
