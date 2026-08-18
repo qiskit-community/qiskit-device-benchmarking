@@ -8,4 +8,18 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals
 
-from .mcps_benchmark import MCPSBenchmark, calculate_mcps, create_mcps_circuit, run_mcps_executor, run_mcps_sampler
+from .mcps_benchmark import (
+    MCPSBenchmark,
+    calculate_mcps,
+    create_mcps_circuit,
+    run_mcps_executor,
+    run_mcps_sampler,
+)
+
+__all__ = [
+    "MCPSBenchmark",
+    "calculate_mcps",
+    "create_mcps_circuit",
+    "run_mcps_executor",
+    "run_mcps_sampler",
+]
