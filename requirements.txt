@@ -1,7 +1,7 @@
 numpy>=1.17
 scipy>=1.4
 qiskit>=1.0
-qiskit-experiments>=0.6
+qiskit-experiments>=0.12
 qiskit-ibm-runtime>=0.28
 matplotlib>=3.4
 rustworkx
