@@ -10,6 +10,7 @@
 
 
 import copy
+import warnings
 from functools import lru_cache
 from typing import Callable, List, Optional, Sequence
 
@@ -17,12 +18,15 @@ import numpy as np
 from qiskit import transpile
 from qiskit.circuit import Barrier, Delay, ParameterVector, QuantumCircuit, Qubit
 from qiskit.circuit.library import IGate, RZGate, SXGate, UGate
+from qiskit.transpiler import CouplingMap
 from qiskit_ibm_runtime import QiskitRuntimeService, Session
 from qiskit_ibm_runtime import SamplerV2 as Sampler
 from qiskit_ibm_runtime import SamplerOptions
 from qiskit_ibm_runtime.options import TwirlingOptions
 from qiskit_ibm_runtime.ibm_backend import Backend
 from qiskit_ibm_runtime.execution_span import ExecutionSpan, ExecutionSpans
+
+import qiskit_device_benchmarking.utilities.graph_utils as gu
 
 """
 CLOPS benchmark
@@ -63,6 +67,19 @@ create payloads in parallel. The user will need to tune both of these
 parameters to try and optimize performance of the system. This will 
 tend to be much slower than on systems that natively support parameterized
 circuits
+
+Qubit set selection follows the CLOPS_h benchmark execution protocol. When the
+backend reports a layer fidelity chain (the best 100 qubit chain found during
+EPLG characterization), that chain is used, so the speed measurement is taken on
+the same qubits as the companion layer fidelity measurement and the two can be
+interpreted jointly. When no such chain is reported the qubit set is selected by
+a topology only heuristic, and this is recorded in the reported metadata.
+
+The circuit is built from the canonical layer decomposition of that chain: two
+qubit disjoint sublayers, L1 on the even bonds and L2 on the odd bonds, cycled
+L1, L2, L1, L2, ... over the requested depth. This is the same decomposition used
+by the layer fidelity experiment. The structure of every layer is fixed; only the
+single qubit gate parameters vary between depth positions and between executions.
 
 For further information see the clops_benchmark class
 """
@@ -180,121 +197,352 @@ def _is_identity(cls) -> bool:
     return False
 
 
-def create_qubit_map(width, coupling_map, faulty_qubits, total_qubits):
-    """
-    Returns a list of  'width' qubits that are connected based on a coupling map that has
-    bad edges already removed and a list of faulty qubits.  If there is not
-    such a map, raised ValueError
-    """
-    qubit_map = []
+QUBIT_SET_SOURCE_USER = "user"
+QUBIT_SET_SOURCE_REPORTED = "eplg_reported"
+QUBIT_SET_SOURCE_TOPOLOGY = "auto:topology"
 
-    # make coupling map bidirectional so we can find all neighbors
-    cm = copy.deepcopy(coupling_map)
-    for edge in list(cm):
-        cm.add_edge(edge[1], edge[0])
-
-    for starting_qubit in range(total_qubits):
-        if starting_qubit not in faulty_qubits:
-            qubit_map = [starting_qubit]
-            new_neighbors = []
-            prospective_neighbors = list(cm.neighbors(starting_qubit))
-            while prospective_neighbors:
-                for pn in prospective_neighbors:
-                    if pn not in qubit_map and pn not in faulty_qubits:
-                        new_neighbors.append(pn)
-                qubit_map = qubit_map + new_neighbors
-                prospective_neighbors = []
-                for nn in new_neighbors:
-                    potential_neighbors = list(cm.neighbors(nn))
-                    for pn in potential_neighbors:
-                        if pn not in prospective_neighbors:
-                            prospective_neighbors.append(pn)
-                new_neighbors = []
-                if len(qubit_map) >= width:
-                    return qubit_map[:width]
-    raise ValueError("Insufficient connected qubits to create set of %d qubits", width)
+# Sources that count as an external specification of the qubit set. A CLOPS_h
+# result must report whether the qubit set was externally specified (e.g. taken
+# from an EPLG measurement) or automatically selected.
+_EXTERNALLY_SPECIFIED = frozenset({QUBIT_SET_SOURCE_USER, QUBIT_SET_SOURCE_REPORTED})
 
 
-def append_2q_layer(qc, coupling_map, basis_gates, rng):
+def two_qubit_gate(backend):
+    """Return the two qubit basis gate for a backend
+
+    Args:
+        backend: the backend to inspect
+
+    Returns:
+        one of "ecr", "cz" or "cx"
     """
-    Add a layer of random 2q gates.
+
+    basis_gates = backend.configuration().basis_gates
+    for gate in ("ecr", "cz", "cx"):
+        if gate in basis_gates:
+            return gate
+
+    raise ValueError("No supported two qubit gate in basis gates %s" % basis_gates)
+
+
+def pruned_coupling_map(backend):
+    """Return the backend coupling map with faulty gates and faulty qubits removed
+
+    Note this also removes edges touching a faulty qubit, not just faulty gates,
+    since the chain search runs directly on the returned map.
+
+    Args:
+        backend: the backend to inspect
+
+    Returns:
+        (coupling_map, faulty_qubits)
     """
-    available_edges = set(coupling_map)
-    while len(available_edges) > 0:
-        edge = tuple(rng.choice(list(available_edges)))
-        available_edges.remove(edge)
-        edges_to_delete = []
-        for ce in list(available_edges):
-            if (edge[0] in ce) or (edge[1] in ce):
-                edges_to_delete.append(ce)
-        available_edges.difference_update(set(edges_to_delete))
-        if "ecr" in basis_gates:
-            qc.ecr(*edge)
-        elif "cz" in basis_gates:
-            qc.cz(*edge)
-        else:
-            qc.cx(*edge)
+
+    faulty_qubits = list(backend.properties().faulty_qubits())
+    faulty_gates = backend.properties().faulty_gates()
+    faulty_edges = [tuple(gate.qubits) for gate in faulty_gates if len(gate.qubits) > 1]
+
+    coupling_map = copy.deepcopy(backend.coupling_map)
+
+    for edge in faulty_edges:
+        if tuple(edge) in coupling_map:
+            coupling_map.graph.remove_edge(edge[0], edge[1])
+
+    for edge in list(coupling_map):
+        if edge[0] in faulty_qubits or edge[1] in faulty_qubits:
+            if tuple(edge) in coupling_map:
+                coupling_map.graph.remove_edge(edge[0], edge[1])
+
+    return coupling_map, faulty_qubits
+
+
+def get_reported_chain(backend, width):
+    """Return the layer fidelity chain reported by the backend, or None
+
+    Wraps layer_fidelity_utils.get_lf_chain, which returns None when the named
+    qubit list is absent, which covers backends reporting an empty list. This
+    wrapper additionally guards backends whose properties object has no
+    general_qlists attribute at all, or is missing properties entirely.
+
+    Args:
+        backend: the backend to inspect
+        width: the chain length to look for
+
+    Returns:
+        list of qubits, or None if the backend reports no such chain
+    """
+
+    try:
+        import qiskit_device_benchmarking.utilities.layer_fidelity_utils as lfu
+
+        return lfu.get_lf_chain(backend, width)
+    except (AttributeError, TypeError, KeyError):
+        return None
+
+
+def validate_chain(chain, coupling_map, faulty_qubits=None):
+    """Check that a chain is a simple path of good qubits in the coupling map
+
+    Args:
+        chain: list of qubits
+        coupling_map: CouplingMap to validate against
+        faulty_qubits: list of faulty qubits
+
+    Raises:
+        ValueError: if the chain repeats a qubit, contains a faulty qubit, or is
+            not a connected path in the coupling map
+    """
+
+    if len(set(chain)) != len(chain):
+        raise ValueError("Qubit chain contains repeated qubits: %s" % chain)
+
+    bad_qubits = [q for q in chain if q in set(faulty_qubits or ())]
+    if bad_qubits:
+        raise ValueError("Qubit chain contains faulty qubits %s" % bad_qubits)
+
+    # raises ValueError if consecutive qubits are not an edge
+    gu.path_to_edges([list(chain)], coupling_map)
+
+
+def select_qubit_set(
+    backend, width, qubits=None, coupling_map=None, faulty_qubits=None
+):
+    """Select the qubit set to benchmark and record where it came from
+
+    Implements the qubit set selection step of the CLOPS_h protocol. In
+    precedence order:
+
+    1. An explicit chain passed by the caller.
+    2. The layer fidelity chain reported by the backend, so that CLOPS is
+       measured on the same qubits as the companion EPLG measurement. A longer
+       reported chain is truncated to `width`; a reported chain shorter than
+       `width` cannot anchor a width `width` result, so it is skipped with a
+       warning.
+    3. A topology only heuristic, which must be declared when reporting.
+
+    Args:
+        backend: the backend to benchmark
+        width: number of qubits wanted
+        qubits: optional explicit chain to use
+        coupling_map: optional pruned coupling map (computed if not given)
+        faulty_qubits: optional list of faulty qubits (computed if not given)
+
+    Returns:
+        (qubit_set, source) where source is one of "user", "eplg_reported" or
+        "auto:topology"
+    """
+
+    if coupling_map is None or faulty_qubits is None:
+        coupling_map, faulty_qubits = pruned_coupling_map(backend)
+
+    # 1. explicit chain from the caller
+    if qubits is not None:
+        chain = [int(q) for q in qubits]
+        if len(chain) != width:
+            raise ValueError(
+                "Explicit qubits has length %d but width is %d. Pass a chain of "
+                "the requested width, or leave width at its default."
+                % (len(chain), width)
+            )
+        return chain, QUBIT_SET_SOURCE_USER
+
+    # 2. the chain reported by the backend from EPLG characterization
+    reported = get_reported_chain(backend, width)
+    if reported is not None:
+        if len(reported) >= width:
+            return [int(q) for q in reported[:width]], QUBIT_SET_SOURCE_REPORTED
+
+        warnings.warn(
+            "Backend reports a layer fidelity chain of %d qubits, which is "
+            "shorter than the requested width %d, so it cannot anchor this "
+            "result. Falling back to automatic selection; report this qubit set "
+            "as automatically selected." % (len(reported), width),
+            stacklevel=2,
+        )
+
+    # 3. topology only fallback
+    chain = gu.longest_path_of_length(coupling_map, width, faulty_qubits)
+    if len(chain) < width:
+        raise ValueError(
+            "Insufficient connected qubits to create set of %d qubits, longest "
+            "chain found was %d" % (width, len(chain))
+        )
+
+    return [int(q) for q in chain], QUBIT_SET_SOURCE_TOPOLOGY
+
+
+def chain_to_layers(chain, coupling_map):
+    """Return the canonical two sublayer decomposition of a 1D chain
+
+    Returns L1 on the even bonds of the chain and L2 on the odd bonds, matching
+    the decomposition used by the layer fidelity experiment (see
+    layer_fidelity_utils.run_lf_chain), so a CLOPS result and an EPLG result on
+    the same chain describe the same layers.
+
+    Args:
+        chain: list of qubits forming a connected path
+        coupling_map: CouplingMap, used to orient each edge as the device
+            declares it
+
+    Returns:
+        list of two lists of qubit pairs
+
+    Raises:
+        ValueError: if the chain is too short, is not a path in the coupling map,
+            or yields a sublayer that is not qubit disjoint
+    """
+
+    chain = [int(q) for q in chain]
+    if len(chain) < 3:
+        raise ValueError("chain must contain at least 3 qubits to decompose")
+
+    all_pairs = gu.path_to_edges([list(chain)], coupling_map)[0]
+    all_pairs = [tuple(pair) for pair in all_pairs]
+    layers = [all_pairs[0::2], all_pairs[1::2]]
+
+    for idx, layer in enumerate(layers):
+        used_qubits = set()
+        for qpair in layer:
+            if tuple(qpair) not in coupling_map and list(qpair) not in coupling_map:
+                raise ValueError("Gate on %s does not exist" % (qpair,))
+
+            if used_qubits & set(qpair):
+                raise ValueError(
+                    "Sublayer L%d is not qubit disjoint at gate %s" % (idx + 1, qpair)
+                )
+            used_qubits.update(qpair)
+
+    return layers
+
+
+def append_2q_layer(qc, edges, two_q_gate):
+    """
+    Add one physical layer of two qubit gates on the given qubit disjoint edges.
+    """
+    gate_funcs = {"ecr": qc.ecr, "cz": qc.cz, "cx": qc.cx}
+    gate_func = gate_funcs[two_q_gate]
+
+    for edge in edges:
+        gate_func(*edge)
     return
 
 
 def create_hardware_aware_circuit(
-    width: int, layers: int, backend, parameterized=True, rng=None
+    width: int,
+    layers: int,
+    backend,
+    parameterized=True,
+    rng=None,
+    qubits: Optional[Sequence[int]] = None,
+    layer_order: str = "2q_first",
+    return_metadata: bool = False,
 ):
     """
-    Creates a random circuit with a structure of alternating 1Q and 2Q gate layers.
-    2Q gate layers respect the device coupling map.  1Q gate layers are parameterized
-    if `parameterized` is set to True, otherwise returns fixed circuit.
+    Creates a circuit with a structure of alternating 1Q and 2Q gate layers.
+
+    The qubit set is a connected 1D chain, taken from the layer fidelity chain
+    reported by the backend when one is available (see select_qubit_set). Its
+    canonical two sublayer decomposition (even bonds, odd bonds) is cycled over
+    the requested depth, so every layer has a fixed structure matching the
+    companion layer fidelity measurement. 1Q gate layers are parameterized if
+    `parameterized` is set to True, otherwise returns fixed circuit, and each
+    depth position gets its own parameters.
+
+    Args:
+        width: number of qubits in the circuit
+        layers: number of physical layers
+        backend: the backend to build for
+        parameterized: whether the 1Q layers carry parameters
+        rng: unused, retained for backwards compatibility
+        qubits: optional explicit qubit chain to use, highest precedence
+        layer_order: "2q_first" places the barrier between the 2Q and 1Q gates,
+            which is the twirling box the Sampler's gate twirling expects.
+            "1q_first" instead orders each layer as 1Q gates, 2Q gates, barrier,
+            terminating every physical layer with the barrier.
+        return_metadata: if True, also return a dict describing the qubit set,
+            its source and the layer decomposition, for result reporting
+
+    Returns:
+        (circuit, param_list) or (circuit, param_list, metadata)
     """
-    if width < 1:
-        raise ValueError("'width' must be at least 1")
+    if width < 3:
+        raise ValueError("'width' must be at least 3 to form a chain")
     if layers < 1:
         raise ValueError("'layers' must be at least 1")
-    config = backend.configuration()
+    if layer_order not in ("2q_first", "1q_first"):
+        raise ValueError("'layer_order' " + layer_order + " invalid")
 
-    basis_gates = backend.configuration().basis_gates
-    faulty_qubits = backend.properties().faulty_qubits()
-    faulty_gates = backend.properties().faulty_gates()
-    faulty_edges = [tuple(gate.qubits) for gate in faulty_gates if len(gate.qubits) > 1]
-    coupling_map = copy.deepcopy(backend.coupling_map)
-    # remove faulty_edges
-    for edge in faulty_edges:
-        if tuple(edge) in coupling_map:
-            coupling_map.graph.remove_edge(edge[0], edge[1])
-    qubit_map = create_qubit_map(width, coupling_map, faulty_qubits, config.num_qubits)
+    coupling_map, faulty_qubits = pruned_coupling_map(backend)
 
-    # remove edges beyond the width of the circuit we are trying to generate
-    for edge in coupling_map:
-        if edge[0] not in qubit_map or edge[1] not in qubit_map:
-            coupling_map.graph.remove_edge(*edge)
+    qubit_map, qubit_source = select_qubit_set(
+        backend,
+        width,
+        qubits=qubits,
+        coupling_map=coupling_map,
+        faulty_qubits=faulty_qubits,
+    )
+    validate_chain(qubit_map, coupling_map, faulty_qubits)
 
-    qc = QuantumCircuit(max(qubit_map) + 1, max(qubit_map) + 1)
+    # the canonical decomposition needs edges oriented as the device declares
+    # them, which requires a CouplingMap rather than a bare list of edges
+    sublayers = chain_to_layers(qubit_map, CouplingMap(list(coupling_map)))
+    two_q_gate = two_qubit_gate(backend)
 
-    qubits = [qc.qubits[i] for i in qubit_map]
+    qc = QuantumCircuit(max(qubit_map) + 1, width)
+
+    qubits_obj = [qc.qubits[i] for i in qubit_map]
     param_list = []
-    seed = 234987
-    rng = np.random.default_rng(seed)
     for d in range(layers):
-        # add 2 qubit gate layer, layer_type indicates even, odd or cross row connections.
-        append_2q_layer(qc, coupling_map, basis_gates, rng)
+        # cycle the fixed sublayers: L1, L2, L1, L2, ...
+        edges = sublayers[d % len(sublayers)]
 
-        # add barrier to form "twirling box" to inform primitve where layers are for twirled gates
-        qc.barrier(qubits)
+        if layer_order == "1q_first":
+            # add single qubit gate layer with optional parameters
+            param_list += append_1q_layer(
+                qc,
+                qubits=qubits_obj,
+                parameterized=parameterized,
+                parameter_prefix="L" + str(d),
+            )
 
-        # add single qubit gate layer with optional parameters
-        param_list += append_1q_layer(
-            qc,
-            qubits=qubits,
-            parameterized=parameterized,
-            parameter_prefix="L" + str(d),
-        )
+            append_2q_layer(qc, edges, two_q_gate)
 
-    qc.barrier(qubits)
+            # barrier terminates the physical layer
+            qc.barrier(qubits_obj)
+        else:
+            append_2q_layer(qc, edges, two_q_gate)
+
+            # add barrier to form "twirling box" to inform primitve where
+            # layers are for twirled gates
+            qc.barrier(qubits_obj)
+
+            # add single qubit gate layer with optional parameters
+            param_list += append_1q_layer(
+                qc,
+                qubits=qubits_obj,
+                parameterized=parameterized,
+                parameter_prefix="L" + str(d),
+            )
+
+    qc.barrier(qubits_obj)
     transpiled_circ = transpile(
         qc, backend, translation_method="translator", layout_method="trivial"
     )
 
     for idx in range(width):
         transpiled_circ.measure(qubit_map[idx], idx)
+
+    if return_metadata:
+        metadata = {
+            "qubits": list(qubit_map),
+            "qubit_set_source": qubit_source,
+            "externally_specified": qubit_source in _EXTERNALLY_SPECIFIED,
+            "two_qubit_layers": [[list(edge) for edge in sl] for sl in sublayers],
+            "num_sublayers": len(sublayers),
+            "two_qubit_gate": two_q_gate,
+            "layer_order": layer_order,
+        }
+        return transpiled_circ, param_list, metadata
 
     return transpiled_circ, param_list
 
@@ -324,9 +572,30 @@ def run_twirled(
     rep_delay: float,
     num_circuits: int,
     execution_path: str,
+    circuit_kwargs: Optional[dict] = None,
 ):
-    (transpiled_circ, _) = create_hardware_aware_circuit(
-        width=width, layers=layers, backend=backend, parameterized=False
+    """Run CLOPS letting the Sampler's gate twirling parameterize the circuit.
+
+    The submitted circuit is unparameterized, so its 1Q layers are a single fixed
+    SX per qubit. The Sampler supplies the parameterization: for each twirling box
+    it inserts an rz-sx-rz-sx-rz frame ahead of the 2Q gates, which is the fully
+    twirled single qubit layer the CLOPS_h protocol specifies.
+
+    The fixed SX layer is therefore additional to what the protocol requires, and
+    is deliberately kept. Gate twirling only covers the qubits taking part in a
+    box, so a qubit idling in a given sublayer receives no twirl frame, while the
+    protocol asks for a single qubit gate on every qubit in the set including idle
+    ones. On a 100 qubit chain the 50 even bonds of L1 cover every qubit, but the
+    49 odd bonds of L2 leave both chain endpoints idle. Keeping the SX layer means
+    those qubits are never left bare, at the cost of slightly slowing the circuit.
+    """
+    (transpiled_circ, _, metadata) = create_hardware_aware_circuit(
+        width=width,
+        layers=layers,
+        backend=backend,
+        parameterized=False,
+        return_metadata=True,
+        **(circuit_kwargs or {}),
     )
     twirling_opts = TwirlingOptions(
         num_randomizations=num_circuits,
@@ -342,7 +611,14 @@ def run_twirled(
         sampler = Sampler(mode=session, options=options)
         job = sampler.run([transpiled_circ], shots=shots * num_circuits)
 
-    return job
+    metadata["twirling"] = {
+        "enable_gates": True,
+        "num_randomizations": num_circuits,
+        "shots_per_randomization": shots,
+    }
+    metadata["parameterization"] = "sampler_gate_twirling"
+
+    return job, metadata
 
 
 def run_parameterized(
@@ -353,9 +629,15 @@ def run_parameterized(
     rep_delay: float,
     num_circuits: int,
     execution_path: str,
+    circuit_kwargs: Optional[dict] = None,
 ):
-    (transpiled_circ, parameters) = create_hardware_aware_circuit(
-        width=width, layers=layers, backend=backend, parameterized=True
+    (transpiled_circ, parameters, metadata) = create_hardware_aware_circuit(
+        width=width,
+        layers=layers,
+        backend=backend,
+        parameterized=True,
+        return_metadata=True,
+        **(circuit_kwargs or {}),
     )
     seed = 234987
     rng = np.random.default_rng(seed)
@@ -377,7 +659,32 @@ def run_parameterized(
         sampler = Sampler(mode=session, options=options)
         job = sampler.run([(transpiled_circ, param_values, shots)])
 
-    return job
+    metadata["twirling"] = {"enable_gates": False}
+    metadata["parameterization"] = "rzsx_3param_per_qubit_per_layer"
+
+    return job, metadata
+
+
+def clops_label(width, layers, shots):
+    """Return the label a CLOPS result should be reported under
+
+    An unqualified "CLOPS" denotes the canonical operating point of 100 qubits,
+    100 layers and 100 shots. Any other operating point carries its parameters in
+    the label so the operating point travels with the number.
+
+    Args:
+        width: number of qubits
+        layers: number of physical layers
+        shots: shots per circuit execution
+
+    Returns:
+        "CLOPS" or "CLOPS_h(N, D, S)"
+    """
+
+    if width == 100 and layers == 100 and shots == 100:
+        return "CLOPS"
+
+    return "CLOPS_h(%d, %d, %d)" % (width, layers, shots)
 
 
 class clops_benchmark:
@@ -394,6 +701,9 @@ class clops_benchmark:
         batch_size: int = None,
         pipelines: int = 1,
         execution_path: Optional[str] = None,
+        qubits: Optional[Sequence[int]] = None,
+        layer_order: str = "2q_first",
+        lfoc_declared: Optional[bool] = None,
     ):
         """Run CLOPS benchmark through Sampler primitive
 
@@ -406,7 +716,7 @@ class clops_benchmark:
             shots: Optional, number of shots per circuit, default is 100
             rep_delay: Optional, delay between circuits, default is set to system value
             num_circuits: Optional, number of circuits (parameter updates) run for the benchmark
-                          default is 1000.  Adjust as necessary to get sufficient iterations.
+                          default is 5000.  Adjust as necessary to get sufficient iterations.
                           For non-twirled benchmarking may need to be significantly reduced to
                           meet API input size limits
             circuit_type: Optional, determines how parameters are handled:
@@ -420,12 +730,53 @@ class clops_benchmark:
                     the backend. Only used for `instantiated` circuit_type.  Default is 1
             execution_path: Optional, A value to pass to the experimental "execution_path" option of the
                         Sampler
+            qubits: Optional, an explicit qubit chain to benchmark. Takes precedence over
+                        the layer fidelity chain reported by the backend. Must be a connected
+                        path of length `width`
+            layer_order: Optional, ordering within each physical layer. Default "2q_first"
+                        keeps the barrier between the 2Q and 1Q gates, which is the twirling
+                        box the Sampler's gate twirling expects. "1q_first" orders each layer
+                        as 1Q gates, 2Q gates, barrier
+            lfoc_declared: Optional, whether this run satisfies layer fidelity operating
+                        conditions. CLOPS does not verify this internally, so it must be
+                        declared when reporting a result. Left as None if not stated
         """
 
         # service = QiskitRuntimeService(channel="ibm_quantum")
         backend = service.backend(backend_name)
         if rep_delay is None:
             rep_delay = backend.configuration().default_rep_delay
+
+        circuit_kwargs = {"qubits": qubits, "layer_order": layer_order}
+
+        if circuit_type == "twirled":
+            self.job, metadata = run_twirled(
+                backend,
+                width,
+                layers,
+                shots,
+                rep_delay,
+                num_circuits,
+                execution_path,
+                circuit_kwargs,
+            )
+            self.clops = self._clops_throughput_sampler
+        elif circuit_type == "parameterized":
+            self.job, metadata = run_parameterized(
+                backend,
+                width,
+                layers,
+                shots,
+                rep_delay,
+                num_circuits,
+                execution_path,
+                circuit_kwargs,
+            )
+            self.clops = self._clops_throughput_sampler
+        elif circuit_type == "instantiated":
+            raise ValueError("'circuit_type' instantiated not yet supported")
+        else:
+            raise ValueError("'circuit_type' " + circuit_type + " invalid")
 
         self.job_attributes = {
             "backend_name": backend_name,
@@ -437,22 +788,24 @@ class clops_benchmark:
             "circuit_type": circuit_type,
             "batch_size": batch_size,
             "pipelines": pipelines,
+            # CLOPS_h reporting requirements
+            "qubits": metadata["qubits"],
+            "qubit_set_source": metadata["qubit_set_source"],
+            "externally_specified": metadata["externally_specified"],
+            "two_qubit_layers": metadata["two_qubit_layers"],
+            "num_sublayers": metadata["num_sublayers"],
+            "two_qubit_gate": metadata["two_qubit_gate"],
+            "layer_order": metadata["layer_order"],
+            "twirling": metadata["twirling"],
+            "parameterization": metadata["parameterization"],
+            "execution_interface": "qiskit-ibm-runtime SamplerV2",
+            "execution_path": execution_path,
+            "canonical_operating_point": (
+                width == 100 and layers == 100 and shots == 100
+            ),
+            "clops_label": clops_label(width, layers, shots),
+            "lfoc_declared": lfoc_declared,
         }
-
-        if circuit_type == "twirled":
-            self.job = run_twirled(
-                backend, width, layers, shots, rep_delay, num_circuits, execution_path
-            )
-            self.clops = self._clops_throughput_sampler
-        elif circuit_type == "parameterized":
-            self.job = run_parameterized(
-                backend, width, layers, shots, rep_delay, num_circuits, execution_path
-            )
-            self.clops = self._clops_throughput_sampler
-        elif circuit_type == "instantiated":
-            raise ValueError("'circuit_type' instantiated not yet supported")
-        else:
-            raise ValueError("'circuit_type' " + circuit_type + " invalid")
 
     def _clops_throughput_sampler(self):
         """Measures the overall CLOPS throughput based off of intermediate
@@ -486,3 +839,52 @@ class clops_benchmark:
         )
 
         return clops
+
+    def report(self):
+        """Return the fields a CLOPS result must specify when reported
+
+        Note this blocks until the job result is available, since it calls
+        clops(). CLOPS does not verify layer fidelity operating conditions
+        internally, so lfoc_declared must be supplied by the caller; a warning is
+        issued if it was never stated.
+
+        Returns:
+            dict of the reportable fields
+        """
+
+        attrs = self.job_attributes
+
+        if attrs["lfoc_declared"] is None:
+            warnings.warn(
+                "lfoc_declared was not set, so this result does not declare "
+                "layer fidelity operating conditions compliance. Pass "
+                "lfoc_declared=True or False to state it.",
+                stacklevel=2,
+            )
+
+        if not attrs["externally_specified"]:
+            warnings.warn(
+                "The qubit set was automatically selected (%s) rather than taken "
+                "from a layer fidelity measurement. Declare this when reporting."
+                % attrs["qubit_set_source"],
+                stacklevel=2,
+            )
+
+        return {
+            "label": attrs["clops_label"],
+            "clops": self.clops(),
+            "units": "physical layers per second",
+            "backend_name": attrs["backend_name"],
+            "width": attrs["width"],
+            "layers": attrs["layers"],
+            "shots": attrs["shots"],
+            "qubits": attrs["qubits"],
+            "qubit_set_source": attrs["qubit_set_source"],
+            "externally_specified": attrs["externally_specified"],
+            "parameterization": attrs["parameterization"],
+            "twirling": attrs["twirling"],
+            "layer_order": attrs["layer_order"],
+            "execution_interface": attrs["execution_interface"],
+            "canonical_operating_point": attrs["canonical_operating_point"],
+            "lfoc_declared": attrs["lfoc_declared"],
+        }

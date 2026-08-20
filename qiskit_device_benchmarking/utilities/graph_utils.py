@@ -94,6 +94,72 @@ def path_to_edges(paths, coupling_map=None):
     return new_path
 
 
+def longest_path_of_length(coupling_map, width, faulty_qubits=None, max_steps=200000):
+    """Find a connected chain of `width` qubits using only the topology
+
+    Topology-only heuristic: no gate errors or other quality data are consulted,
+    so the returned chain reflects connectivity alone. Deterministic (no RNG), so
+    a given coupling map always yields the same chain, which result reporting
+    requires.
+
+    Candidate starting qubits are tried in ascending (degree, index) order, since
+    low degree qubits are chain endpoints on heavy-hex topologies and reach long
+    paths soonest. Neighbors are visited in ascending index order.
+
+    Args:
+        coupling_map: coupling map, either a CouplingMap or a list of edges
+        width: length of the chain to find
+        faulty_qubits: list of faulty qubits (will be excluded from the chain)
+        max_steps: cap on the number of nodes explored before giving up. Finding
+            a longest simple path is exponential in the worst case, so this bound
+            keeps the search tractable on large devices.
+
+    Returns:
+        list of `width` connected qubits, or the longest chain found if no chain
+        of `width` qubits exists within max_steps
+    """
+
+    faulty = set(faulty_qubits or ())
+
+    # build an undirected adjacency dict, dropping faulty qubits
+    adj = {}
+    for edge in coupling_map:
+        q0, q1 = int(edge[0]), int(edge[1])
+        if q0 in faulty or q1 in faulty:
+            continue
+        adj.setdefault(q0, set()).add(q1)
+        adj.setdefault(q1, set()).add(q0)
+
+    best = []
+    steps = 0
+
+    for start in sorted(adj, key=lambda q: (len(adj[q]), q)):
+        # depth first search for a simple path of `width` qubits
+        stack = [(start, [start], {start})]
+        while stack:
+            node, path, visited = stack.pop()
+            steps += 1
+
+            if len(path) > len(best):
+                best = path
+
+            if len(path) >= width:
+                return path[:width]
+
+            if steps > max_steps:
+                break
+
+            # reverse sort so the lowest index neighbor is popped first
+            for neighbor in sorted(adj[node], reverse=True):
+                if neighbor not in visited:
+                    stack.append((neighbor, path + [neighbor], visited | {neighbor}))
+
+        if steps > max_steps:
+            break
+
+    return best
+
+
 def build_sys_graph(nq, coupling_map, faulty_qubits=None):
     """Build a system graph
 
