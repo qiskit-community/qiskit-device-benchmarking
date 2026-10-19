@@ -1,6 +1,6 @@
 numpy>=1.17
 scipy>=1.4
-qiskit>=1.0
+qiskit>=1.0,<3
 qiskit-experiments>=0.12
 qiskit-ibm-runtime>=0.28
 matplotlib>=3.4
