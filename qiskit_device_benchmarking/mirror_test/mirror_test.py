@@ -18,7 +18,7 @@ from qiskit_ibm_runtime import (
     IBMBackend,
     RuntimeJobV2 as RuntimeJob,
 )
-from qiskit_ibm_runtime.utils.noise_learner_result import LayerError
+from qiskit_ibm_runtime.results.noise_learner import LayerError
 from qiskit.primitives import PrimitiveResult
 
 from .mirror_pub import MirrorPubOptions
